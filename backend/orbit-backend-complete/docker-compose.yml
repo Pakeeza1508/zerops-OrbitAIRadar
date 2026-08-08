@@ -1,0 +1,27 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - orbit_mongo:/data/db
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: orbit
+      JWT_SECRET: local-docker-change-me-before-production
+      CORS_ORIGINS: http://localhost:3000
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-}
+    ports:
+      - "8000:8000"
+
+volumes:
+  orbit_mongo:

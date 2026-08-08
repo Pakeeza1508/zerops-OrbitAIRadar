@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://api.app-prg1.zerops.io/api/rest/public/settings/zerops-yml-json-schema.json
+zerops:
+  - setup: api
+    build:
+      base: python@3.12
+      deployFiles: ./
+      addToRunPrepare:
+        - requirements.txt
+    deploy:
+      readinessCheck:
+        httpGet:
+          port: 8000
+          path: /ready
+    run:
+      base: python@3.12
+      prepareCommands:
+        - python3 -m pip install --no-cache-dir -r requirements.txt
+      ports:
+        - port: 8000
+          httpSupport: true
+      start: uvicorn server:app --host 0.0.0.0 --port 8000
+      healthCheck:
+        httpGet:
+          port: 8000
+          path: /health
+      crontab:
+        - command: python3 -m app.jobs.daily_sync
+          timing: "0 2 * * *"
+          allContainers: false
+          workingDir: /var/www

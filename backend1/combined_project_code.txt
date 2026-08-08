@@ -1,0 +1,2343 @@
+PROJECT STRUCTURE:
+====================
+
+    ├── code.py
+    ├── server.py
+└── app/
+        ├── __init__.py
+        ├── config.py
+        ├── db.py
+    └── auth/
+            ├── debs.py
+            ├── security.py
+    └── models/
+            ├── __init__.py
+            ├── base.py
+            ├── opportunity.py
+            ├── run.py
+            ├── saved.py
+            ├── source.py
+            ├── user.py
+    └── schemas/
+            ├── auth.py
+            ├── opportunities.py
+    └── services/
+            ├── searxng.py
+        └── ai/
+                ├── groq_client.py
+                ├── tasks.py
+        └── matching/
+                ├── engine.py
+        └── scrapper/
+                ├── dedupe.py
+                ├── extract.py
+                ├── fetcher.py
+                ├── normalize.py
+    └── utils/
+            ├── __init__.py
+            ├── dates.py
+            ├── logging.py
+            ├── text.py
+            ├── urls.py
+
+
+FILE CONTENTS:
+==============
+--- START OF FILE: server.py ---
+
+from fastapi import FastAPI, APIRouter
+from dotenv import load_dotenv
+from starlette.middleware.cors import CORSMiddleware
+from motor.motor_asyncio import AsyncIOMotorClient
+import os
+import logging
+from pathlib import Path
+from pydantic import BaseModel, Field, ConfigDict
+from typing import List
+import uuid
+from datetime import datetime, timezone
+
+
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
+# MongoDB connection
+mongo_url = os.environ['MONGO_URL']
+client = AsyncIOMotorClient(mongo_url)
+db = client[os.environ['DB_NAME']]
+
+# Create the main app without a prefix
+app = FastAPI()
+
+# Create a router with the /api prefix
+api_router = APIRouter(prefix="/api")
+
+
+# Define Models
+class StatusCheck(BaseModel):
+    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    client_name: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class StatusCheckCreate(BaseModel):
+    client_name: str
+
+# Add your routes to the router instead of directly to app
+@api_router.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+@api_router.post("/status", response_model=StatusCheck)
+async def create_status_check(input: StatusCheckCreate):
+    status_dict = input.model_dump()
+    status_obj = StatusCheck(**status_dict)
+    
+    # Convert to dict and serialize datetime to ISO string for MongoDB
+    doc = status_obj.model_dump()
+    doc['timestamp'] = doc['timestamp'].isoformat()
+    
+    _ = await db.status_checks.insert_one(doc)
+    return status_obj
+
+@api_router.get("/status", response_model=List[StatusCheck])
+async def get_status_checks():
+    # Exclude MongoDB's _id field from the query results
+    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
+    
+    # Convert ISO string timestamps back to datetime objects
+    for check in status_checks:
+        if isinstance(check['timestamp'], str):
+            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
+    
+    return status_checks
+
+# Include the router in the main app
+app.include_router(api_router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    client.close()
+
+
+
+--- END OF FILE: server.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\__init__.py ---
+
+"""Orbit — AI Opportunity Radar backend package."""
+
+
+--- END OF FILE: app\__init__.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\config.py ---
+
+import logging
+
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import ASCENDING, DESCENDING, TEXT
+
+from app.config import settings
+
+logger = logging.getLogger("orbit.db")
+
+_client: AsyncIOMotorClient | None = None
+
+
+def get_client() -> AsyncIOMotorClient:
+    global _client
+    if _client is None:
+        _client = AsyncIOMotorClient(settings.mongo_url, tz_aware=True)
+    return _client
+
+
+def get_db() -> AsyncIOMotorDatabase:
+    return get_client()[settings.db_name]
+
+
+async def close_client() -> None:
+    global _client
+    if _client is not None:
+        _client.close()
+        _client = None
+
+
+async def ensure_indexes() -> None:
+    db = get_db()
+    try:
+        await db.users.create_index([("email", ASCENDING)], unique=True)
+        await db.profiles.create_index([("userId", ASCENDING)], unique=True)
+
+        await db.opportunities.create_index([("canonicalUrl", ASCENDING)], unique=True)
+        await db.opportunities.create_index([("fingerprint", ASCENDING)])
+        await db.opportunities.create_index([("status", ASCENDING), ("deadline", ASCENDING)])
+        await db.opportunities.create_index([("category", ASCENDING)])
+        await db.opportunities.create_index([("createdAt", DESCENDING)])
+        await db.opportunities.create_index([("organization", ASCENDING)])
+        await db.opportunities.create_index([("sourceId", ASCENDING)])
+        await db.opportunities.create_index([("contentHash", ASCENDING)])
+        await db.opportunities.create_index(
+            [
+                ("title", TEXT),
+                ("organization", TEXT),
+                ("description", TEXT),
+                ("requiredSkills", TEXT),
+            ],
+            name="opportunity_text",
+            default_language="english",
+        )
+
+        await db.saved_opportunities.create_index(
+            [("userId", ASCENDING), ("originalOpportunityId", ASCENDING)], unique=True
+        )
+        await db.saved_opportunities.create_index([("userId", ASCENDING), ("savedAt", DESCENDING)])
+
+        await db.sources.create_index([("baseUrl", ASCENDING)], unique=True)
+        await db.scrape_runs.create_index([("startedAt", DESCENDING)])
+        await db.locks.create_index([("name", ASCENDING)], unique=True)
+        await db.candidate_queue.create_index([("url", ASCENDING)], unique=True)
+    except Exception as exc:  # pragma: no cover - index creation is best-effort
+        logger.warning("Index creation issue: %s", exc)
+
+
+--- END OF FILE: app\config.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\db.py ---
+
+import logging
+
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import ASCENDING, DESCENDING, TEXT
+
+from app.config import settings
+
+logger = logging.getLogger("orbit.db")
+
+_client: AsyncIOMotorClient | None = None
+
+
+def get_client() -> AsyncIOMotorClient:
+    global _client
+    if _client is None:
+        _client = AsyncIOMotorClient(settings.mongo_url, tz_aware=True)
+    return _client
+
+
+def get_db() -> AsyncIOMotorDatabase:
+    return get_client()[settings.db_name]
+
+
+async def close_client() -> None:
+    global _client
+    if _client is not None:
+        _client.close()
+        _client = None
+
+
+async def ensure_indexes() -> None:
+    db = get_db()
+    try:
+        await db.users.create_index([("email", ASCENDING)], unique=True)
+        await db.profiles.create_index([("userId", ASCENDING)], unique=True)
+
+        await db.opportunities.create_index([("canonicalUrl", ASCENDING)], unique=True)
+        await db.opportunities.create_index([("fingerprint", ASCENDING)])
+        await db.opportunities.create_index([("status", ASCENDING), ("deadline", ASCENDING)])
+        await db.opportunities.create_index([("category", ASCENDING)])
+        await db.opportunities.create_index([("createdAt", DESCENDING)])
+        await db.opportunities.create_index([("organization", ASCENDING)])
+        await db.opportunities.create_index([("sourceId", ASCENDING)])
+        await db.opportunities.create_index([("contentHash", ASCENDING)])
+        await db.opportunities.create_index(
+            [
+                ("title", TEXT),
+                ("organization", TEXT),
+                ("description", TEXT),
+                ("requiredSkills", TEXT),
+            ],
+            name="opportunity_text",
+            default_language="english",
+        )
+
+        await db.saved_opportunities.create_index(
+            [("userId", ASCENDING), ("originalOpportunityId", ASCENDING)], unique=True
+        )
+        await db.saved_opportunities.create_index([("userId", ASCENDING), ("savedAt", DESCENDING)])
+
+        await db.sources.create_index([("baseUrl", ASCENDING)], unique=True)
+        await db.scrape_runs.create_index([("startedAt", DESCENDING)])
+        await db.locks.create_index([("name", ASCENDING)], unique=True)
+        await db.candidate_queue.create_index([("url", ASCENDING)], unique=True)
+    except Exception as exc:  # pragma: no cover - index creation is best-effort
+        logger.warning("Index creation issue: %s", exc)
+
+
+--- END OF FILE: app\db.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\auth\debs.py ---
+
+import time
+from collections import defaultdict, deque
+
+from bson import ObjectId
+from bson.errors import InvalidId
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from app.auth.security import decode_access_token
+from app.config import settings
+from app.db import get_db
+from app.models.user import User
+
+bearer = HTTPBearer(auto_error=False)
+
+_buckets: dict[str, deque] = defaultdict(deque)
+
+
+def rate_limit(key: str, limit: int, window_seconds: int) -> None:
+    """Simple in-process sliding-window rate limiter."""
+    now = time.time()
+    bucket = _buckets[key]
+    while bucket and now - bucket[0] > window_seconds:
+        bucket.popleft()
+    if len(bucket) >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many requests. Please slow down.",
+        )
+    bucket.append(now)
+
+
+def client_key(request: Request, suffix: str) -> str:
+    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (
+        request.client.host if request.client else "unknown"
+    )
+    return f"{suffix}:{ip}"
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+) -> User:
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    payload = decode_access_token(credentials.credentials)
+    if not payload or not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    try:
+        oid = ObjectId(payload["sub"])
+    except (InvalidId, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid token subject")
+    doc = await get_db().users.find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(status_code=401, detail="User no longer exists")
+    return User.from_mongo(doc)
+
+
+async def get_admin_user(user: User = Depends(get_current_user)) -> User:
+    if user.isAdmin or (settings.admin_email and user.email.lower() == settings.admin_email):
+        return user
+    raise HTTPException(status_code=403, detail="Admin privileges required")
+
+
+--- END OF FILE: app\auth\debs.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\auth\security.py ---
+
+import secrets
+from datetime import datetime, timedelta, timezone
+
+import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import VerificationError, VerifyMismatchError
+
+from app.config import settings
+
+_hasher = PasswordHasher()
+
+# Fallback secret is generated per-process so tokens never validate across
+# restarts if JWT_SECRET was not configured. Production must set JWT_SECRET.
+_RUNTIME_SECRET = settings.jwt_secret or secrets.token_urlsafe(48)
+
+
+def hash_password(password: str) -> str:
+    return _hasher.hash(password)
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    try:
+        return _hasher.verify(password_hash, password)
+    except (VerifyMismatchError, VerificationError, ValueError):
+        return False
+
+
+def create_access_token(user_id: str, email: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=settings.jwt_expire_minutes)).timestamp()),
+    }
+    return jwt.encode(payload, _RUNTIME_SECRET, algorithm=settings.jwt_algorithm)
+
+
+def decode_access_token(token: str) -> dict | None:
+    try:
+        return jwt.decode(token, _RUNTIME_SECRET, algorithms=[settings.jwt_algorithm])
+    except jwt.PyJWTError:
+        return None
+
+
+--- END OF FILE: app\auth\security.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\models\__init__.py ---
+
+
+
+--- END OF FILE: app\models\__init__.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\models\base.py ---
+
+from datetime import datetime, timezone
+from typing import Annotated, Any
+
+from bson import ObjectId
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+
+
+def _to_str(v: Any) -> Any:
+    if isinstance(v, ObjectId):
+        return str(v)
+    return v
+
+
+PyObjectId = Annotated[str, BeforeValidator(_to_str)]
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class BaseDocument(BaseModel):
+    """Base model mapping Mongo `_id` to `id` as a string."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    id: PyObjectId | None = Field(default=None, alias="_id")
+
+    @classmethod
+    def from_mongo(cls, doc: dict | None):
+        if not doc:
+            return None
+        return cls.model_validate(doc)
+
+    def to_mongo(self, exclude_none: bool = False) -> dict:
+        data = self.model_dump(by_alias=True, exclude_none=exclude_none)
+        if data.get("_id") is None:
+            data.pop("_id", None)
+        return data
+
+
+--- END OF FILE: app\models\base.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\models\opportunity.py ---
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import Field
+
+from app.models.base import BaseDocument, utcnow
+
+CATEGORIES = [
+    "scholarship",
+    "internship",
+    "fellowship",
+    "hackathon",
+    "grant",
+    "competition",
+    "research",
+    "open_source",
+    "developer_program",
+    "mentorship",
+    "other",
+]
+
+OpportunityStatus = Literal["active", "closing_soon", "expired", "closed", "unverified"]
+VerificationStatus = Literal["verified", "likely_verified", "unverified"]
+
+
+class Opportunity(BaseDocument):
+    title: str
+    organization: str | None = None
+    slug: str | None = None
+    description: str | None = None
+    shortDescription: str | None = None
+    category: str = "other"
+
+    sourceUrl: str
+    applicationUrl: str | None = None
+    canonicalUrl: str
+    sourceDomain: str | None = None
+
+    countriesEligible: list[str] = Field(default_factory=list)
+    locations: list[str] = Field(default_factory=list)
+    remote: bool | None = None
+    hybrid: bool | None = None
+    onsite: bool | None = None
+
+    educationLevels: list[str] = Field(default_factory=list)
+    fieldsOfStudy: list[str] = Field(default_factory=list)
+    requiredSkills: list[str] = Field(default_factory=list)
+    preferredSkills: list[str] = Field(default_factory=list)
+    experienceLevels: list[str] = Field(default_factory=list)
+
+    fundingType: str | None = None
+    fundingAmount: float | None = None
+    currency: str | None = None
+
+    deadline: datetime | None = None
+    deadlineText: str | None = None
+    applicationOpenDate: datetime | None = None
+
+    eligibilityText: str | None = None
+    requirements: list[str] = Field(default_factory=list)
+    benefits: list[str] = Field(default_factory=list)
+
+    verified: bool = False
+    verificationStatus: VerificationStatus = "unverified"
+    sourceType: str | None = None
+    extractionMethod: str | None = None
+    aiConfidence: float | None = None
+    isDemoData: bool = False
+
+    status: OpportunityStatus = "active"
+
+    scrapedAt: datetime = Field(default_factory=utcnow)
+    lastSeenAt: datetime = Field(default_factory=utcnow)
+    lastCheckedAt: datetime = Field(default_factory=utcnow)
+    lastChangedAt: datetime = Field(default_factory=utcnow)
+
+    contentHash: str | None = None
+    fingerprint: str | None = None
+    consecutiveFetchFailures: int = 0
+
+    sourceId: str | None = None
+
+    createdAt: datetime = Field(default_factory=utcnow)
+    updatedAt: datetime = Field(default_factory=utcnow)
+
+
+--- END OF FILE: app\models\opportunity.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\models\run.py ---
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import Field
+
+from app.models.base import BaseDocument, utcnow
+
+
+class ScrapeRun(BaseDocument):
+    startedAt: datetime = Field(default_factory=utcnow)
+    finishedAt: datetime | None = None
+    trigger: Literal["cron", "manual"] = "manual"
+    sourcesAttempted: int = 0
+    sourcesSucceeded: int = 0
+    urlsDiscovered: int = 0
+    urlsFetched: int = 0
+    newCount: int = 0
+    updatedCount: int = 0
+    duplicateCount: int = 0
+    expiredCount: int = 0
+    failedCount: int = 0
+    aiCalls: int = 0
+    status: Literal["running", "success", "partial", "failed"] = "running"
+    errors: list[str] = Field(default_factory=list)
+
+
+--- END OF FILE: app\models\run.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\models\saved.py ---
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import Field
+
+from app.models.base import BaseDocument, utcnow
+
+ApplicationStatus = Literal["saved", "planning", "applied"]
+
+
+class SavedOpportunity(BaseDocument):
+    """A user's saved opportunity, including a full immutable snapshot.
+
+    The snapshot guarantees the user keeps access even if the master
+    opportunity record later expires or is deleted.
+    """
+
+    userId: str
+    originalOpportunityId: str
+    savedAt: datetime = Field(default_factory=utcnow)
+    notes: str | None = None
+    applicationStatus: ApplicationStatus = "saved"
+    snapshot: dict = Field(default_factory=dict)
+    snapshotMatchScore: int | None = None
+    masterDeleted: bool = False
+    updatedAt: datetime = Field(default_factory=utcnow)
+
+
+--- END OF FILE: app\models\saved.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\models\source.py ---
+
+from datetime import datetime
+
+from pydantic import Field
+
+from app.models.base import BaseDocument, utcnow
+
+
+class Source(BaseDocument):
+    name: str
+    baseUrl: str
+    category: str = "other"
+    enabled: bool = True
+    discoveryType: str = "rss"  # rss | sitemap | listing | searxng
+    listingSelector: str | None = None
+    queries: list[str] = Field(default_factory=list)
+    lastRunAt: datetime | None = None
+    lastSuccessAt: datetime | None = None
+    consecutiveFailures: int = 0
+    lastError: str | None = None
+    crawlDelay: float = 1.5
+    priority: int = 5
+    createdAt: datetime = Field(default_factory=utcnow)
+    updatedAt: datetime = Field(default_factory=utcnow)
+
+
+--- END OF FILE: app\models\source.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\models\user.py ---
+
+from datetime import datetime
+
+from pydantic import EmailStr, Field
+
+from app.models.base import BaseDocument, utcnow
+
+
+class User(BaseDocument):
+    email: EmailStr
+    passwordHash: str
+    fullName: str | None = None
+    isAdmin: bool = False
+    onboardingComplete: bool = False
+    createdAt: datetime = Field(default_factory=utcnow)
+    updatedAt: datetime = Field(default_factory=utcnow)
+
+
+class Profile(BaseDocument):
+    userId: str
+    fullName: str | None = None
+    country: str | None = None
+    educationLevel: str | None = None
+    fieldOfStudy: str | None = None
+    institution: str | None = None
+    graduationYear: int | None = None
+    experienceLevel: str | None = None
+    skills: list[str] = Field(default_factory=list)
+    interests: list[str] = Field(default_factory=list)
+    preferredCategories: list[str] = Field(default_factory=list)
+    locationPreference: list[str] = Field(default_factory=list)  # remote/hybrid/onsite/global
+    preferredCountries: list[str] = Field(default_factory=list)
+    fundingPreference: str | None = None  # any | funded_only | unfunded_ok
+    createdAt: datetime = Field(default_factory=utcnow)
+    updatedAt: datetime = Field(default_factory=utcnow)
+
+
+--- END OF FILE: app\models\user.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\schemas\auth.py ---
+
+from datetime import datetime
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    fullName: str | None = Field(default=None, max_length=120)
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+
+class TokenResponse(BaseModel):
+    accessToken: str
+    tokenType: str = "bearer"
+    user: "UserResponse"
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: EmailStr
+    fullName: str | None = None
+    isAdmin: bool = False
+    onboardingComplete: bool = False
+    createdAt: datetime | None = None
+
+
+class ProfileRequest(BaseModel):
+    fullName: str | None = Field(default=None, max_length=120)
+    country: str | None = Field(default=None, max_length=80)
+    educationLevel: str | None = Field(default=None, max_length=60)
+    fieldOfStudy: str | None = Field(default=None, max_length=120)
+    institution: str | None = Field(default=None, max_length=160)
+    graduationYear: int | None = Field(default=None, ge=1950, le=2100)
+    experienceLevel: str | None = Field(default=None, max_length=40)
+    skills: list[str] = Field(default_factory=list, max_length=60)
+    interests: list[str] = Field(default_factory=list, max_length=40)
+    preferredCategories: list[str] = Field(default_factory=list, max_length=20)
+    locationPreference: list[str] = Field(default_factory=list, max_length=10)
+    preferredCountries: list[str] = Field(default_factory=list, max_length=40)
+    fundingPreference: str | None = Field(default=None, max_length=30)
+
+    @field_validator("skills", "interests", "preferredCategories", "preferredCountries")
+    @classmethod
+    def clean_list(cls, values: list[str]) -> list[str]:
+        seen, out = set(), []
+        for v in values:
+            v = (v or "").strip()[:60]
+            if v and v.lower() not in seen:
+                seen.add(v.lower())
+                out.append(v)
+        return out
+
+
+class ProfileResponse(ProfileRequest):
+    userId: str
+    updatedAt: datetime | None = None
+
+
+TokenResponse.model_rebuild()
+
+
+--- END OF FILE: app\schemas\auth.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\schemas\opportunities.py ---
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import Field
+
+from app.models.base import BaseDocument, utcnow
+
+
+class ScrapeRun(BaseDocument):
+    startedAt: datetime = Field(default_factory=utcnow)
+    finishedAt: datetime | None = None
+    trigger: Literal["cron", "manual"] = "manual"
+    sourcesAttempted: int = 0
+    sourcesSucceeded: int = 0
+    urlsDiscovered: int = 0
+    urlsFetched: int = 0
+    newCount: int = 0
+    updatedCount: int = 0
+    duplicateCount: int = 0
+    expiredCount: int = 0
+    failedCount: int = 0
+    aiCalls: int = 0
+    status: Literal["running", "success", "partial", "failed"] = "running"
+    errors: list[str] = Field(default_factory=list)
+
+
+--- END OF FILE: app\schemas\opportunities.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\services\searxng.py ---
+
+"""Optional SearXNG discovery. Disabled silently when SEARXNG_BASE_URL is unset."""
+
+import logging
+
+import httpx
+
+from app.config import settings
+from app.utils.urls import canonicalize_url, is_public_http_url, looks_like_content_url
+
+logger = logging.getLogger("orbit.searxng")
+
+DISCOVERY_QUERIES = [
+    "student fellowship applications open",
+    "fully funded scholarship applications deadline",
+    "developer internship application deadline",
+    "open source mentorship program applications",
+    "hackathon registration open students",
+    "research fellowship for students application",
+    "global student competition apply",
+]
+
+RELEVANCE_TERMS = (
+    "scholarship",
+    "internship",
+    "fellowship",
+    "hackathon",
+    "grant",
+    "competition",
+    "programme",
+    "program",
+    "mentorship",
+    "apply",
+    "application",
+    "deadline",
+    "funded",
+    "bursary",
+    "residency",
+)
+
+NEGATIVE_TERMS = ("login", "signin", "cart", "pricing", "casino", "porn", "job board review")
+
+
+def is_relevant(title: str, snippet: str, url: str) -> bool:
+    """Lightweight relevance classifier — SearXNG results are candidates, not data."""
+    blob = f"{title} {snippet} {url}".lower()
+    if any(term in blob for term in NEGATIVE_TERMS):
+        return False
+    hits = sum(1 for term in RELEVANCE_TERMS if term in blob)
+    return hits >= 2
+
+
+async def search(query: str, max_results: int = 10) -> list[dict]:
+    if not settings.searxng_enabled:
+        return []
+    params = {"q": query, "format": "json", "language": "en", "safesearch": "1"}
+    try:
+        async with httpx.AsyncClient(
+            timeout=settings.scraper_timeout,
+            headers={"User-Agent": settings.scraper_user_agent},
+            follow_redirects=True,
+        ) as client:
+            resp = await client.get(f"{settings.searxng_base_url}/search", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("SearXNG unavailable (%s) — skipping live discovery", exc)
+        return []
+
+    out: list[dict] = []
+    for item in data.get("results", [])[: max_results * 3]:
+        url = canonicalize_url(item.get("url", ""))
+        title = item.get("title", "") or ""
+        snippet = item.get("content", "") or ""
+        if not url or not looks_like_content_url(url):
+            continue
+        if not is_relevant(title, snippet, url):
+            continue
+        if not is_public_http_url(url):
+            continue
+        out.append({"url": url, "title": title, "snippet": snippet})
+        if len(out) >= max_results:
+            break
+    return out
+
+
+--- END OF FILE: app\services\searxng.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\services\ai\groq_client.py ---
+
+"""Groq API client — structured JSON reasoning layer.
+
+Fully env-var driven. If GROQ_API_KEY is absent, `enabled` is False and every
+caller degrades gracefully (returns None) instead of raising.
+"""
+
+import asyncio
+import json
+import logging
+
+import httpx
+
+from app.config import settings
+
+logger = logging.getLogger("orbit.ai.groq")
+
+
+class GroqClient:
+    def __init__(self) -> None:
+        self.api_key = settings.groq_api_key
+        self.model = settings.groq_model
+        self.base_url = settings.groq_base_url
+        self.timeout = settings.groq_timeout
+        self.calls_made = 0
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.api_key)
+
+    async def json_completion(
+        self,
+        system: str,
+        user: str,
+        max_tokens: int = 1200,
+        temperature: float = 0.1,
+        retries: int = 3,
+    ) -> dict | None:
+        """Request a JSON object completion. Returns parsed dict or None."""
+        if not self.enabled:
+            return None
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        backoff = 1.5
+        for attempt in range(retries):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    resp = await client.post(
+                        f"{self.base_url}/chat/completions", json=payload, headers=headers
+                    )
+                if resp.status_code == 429:
+                    await asyncio.sleep(backoff * (2**attempt))
+                    continue
+                if resp.status_code >= 400:
+                    logger.warning("Groq error %s: %s", resp.status_code, resp.text[:300])
+                    if resp.status_code >= 500:
+                        await asyncio.sleep(backoff * (2**attempt))
+                        continue
+                    return None
+                self.calls_made += 1
+                content = resp.json()["choices"][0]["message"]["content"]
+                return json.loads(content)
+            except (httpx.HTTPError, json.JSONDecodeError, KeyError, IndexError) as exc:
+                logger.warning("Groq request failed (attempt %s): %s", attempt + 1, exc)
+                await asyncio.sleep(backoff * (2**attempt))
+        return None
+
+
+groq_client = GroqClient()
+
+
+--- END OF FILE: app\services\ai\groq_client.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\services\ai\tasks.py ---
+
+"""AI tasks built on Groq. Every task degrades gracefully when AI is disabled."""
+
+import logging
+
+from app.services.ai.groq_client import groq_client
+
+logger = logging.getLogger("orbit.ai.tasks")
+
+EXTRACTION_SYSTEM = """You extract structured opportunity data from web page text.
+You are a strict extractor: NEVER invent information. If a field is not explicitly
+stated in the provided text, return null (or an empty array).
+Do not infer deadlines, funding, organizations, eligible countries or URLs.
+Reply ONLY with a JSON object matching exactly this shape:
+{
+  "isOpportunity": boolean,
+  "confidence": number between 0 and 1,
+  "title": string|null,
+  "organization": string|null,
+  "category": one of ["scholarship","internship","fellowship","hackathon","grant","competition","research","open_source","developer_program","mentorship","other"]|null,
+  "description": string|null,
+  "deadline": string|null (ISO-8601 date if explicitly stated),
+  "countriesEligible": string[],
+  "educationLevels": string[],
+  "fieldsOfStudy": string[],
+  "requiredSkills": string[],
+  "fundingType": string|null,
+  "fundingAmount": number|null,
+  "currency": string|null,
+  "remote": boolean|null,
+  "applicationUrl": string|null,
+  "requirements": string[],
+  "benefits": string[],
+  "evidence": object mapping field names to short verbatim quotes from the text
+}"""
+
+CLASSIFY_SYSTEM = """You decide whether a web page describes a single, concrete opportunity
+(scholarship, internship, fellowship, hackathon, grant, competition, research program,
+open-source program, developer program or mentorship program) that a student could apply to.
+Listing/index/news/blog pages are NOT opportunities.
+Reply ONLY with JSON: {"isOpportunity": boolean, "confidence": number, "category": string|null, "reason": string}"""
+
+EXPLAIN_SYSTEM = """You write one short, factual sentence explaining why an opportunity matches a
+student, using ONLY the deterministic matching facts provided. Never add new facts, never invent
+eligibility or deadlines. Max 40 words.
+Reply ONLY with JSON: {"explanation": string}"""
+
+QUERY_SYSTEM = """You convert a natural-language opportunity search into structured filters.
+Reply ONLY with JSON using exactly these keys (omit nothing, use null/[] when unknown):
+{
+ "categories": string[] (subset of ["scholarship","internship","fellowship","hackathon","grant","competition","research","open_source","developer_program","mentorship"]),
+ "countries": string[],
+ "skills": string[],
+ "remote": boolean|null,
+ "fundingRequired": boolean|null,
+ "deadlineBefore": string|null (ISO-8601 date),
+ "deadlineAfter": string|null (ISO-8601 date),
+ "educationLevels": string[],
+ "queryText": string|null (free-text keywords),
+ "answer": string (one sentence describing what you searched for)
+}
+Never output database operators or field names other than the keys above."""
+
+
+async def classify_page(title: str, text: str) -> dict | None:
+    if not groq_client.enabled:
+        return None
+    return await groq_client.json_completion(
+        CLASSIFY_SYSTEM, f"TITLE: {title}\n\nTEXT:\n{text[:6000]}", max_tokens=300
+    )
+
+
+async def extract_opportunity(url: str, title: str, text: str) -> dict | None:
+    if not groq_client.enabled:
+        return None
+    return await groq_client.json_completion(
+        EXTRACTION_SYSTEM,
+        f"URL: {url}\nTITLE: {title}\n\nPAGE TEXT (truncated):\n{text[:9000]}",
+        max_tokens=1600,
+    )
+
+
+async def explain_match(opportunity: dict, profile: dict, match: dict) -> str | None:
+    if not groq_client.enabled:
+        return None
+    facts = {
+        "title": opportunity.get("title"),
+        "organization": opportunity.get("organization"),
+        "category": opportunity.get("category"),
+        "deadline": str(opportunity.get("deadline")) if opportunity.get("deadline") else None,
+        "countriesEligible": opportunity.get("countriesEligible"),
+        "fundingType": opportunity.get("fundingType"),
+        "remote": opportunity.get("remote"),
+        "studentCountry": profile.get("country"),
+        "studentField": profile.get("fieldOfStudy"),
+        "studentEducation": profile.get("educationLevel"),
+        "matchScore": match.get("matchScore"),
+        "matchedSkills": match.get("matchedSkills"),
+        "missingSkills": match.get("missingSkills"),
+        "eligibilityStatus": match.get("eligibilityStatus"),
+        "matchingReasons": match.get("matchingReasons"),
+    }
+    result = await groq_client.json_completion(
+        EXPLAIN_SYSTEM, f"FACTS:\n{facts}", max_tokens=200, temperature=0.3
+    )
+    if isinstance(result, dict):
+        value = result.get("explanation")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+async def query_to_filters(query: str) -> dict | None:
+    if not groq_client.enabled:
+        return None
+    return await groq_client.json_completion(QUERY_SYSTEM, f"QUERY: {query}", max_tokens=600)
+
+
+--- END OF FILE: app\services\ai\tasks.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\services\matching\engine.py ---
+
+"""Deterministic matching engine — no LLM calls per user/opportunity pair.
+
+Weights (total 100):
+  skills 30 | eligibility/country 25 | category preference 15
+  education 10 | location/remote 10 | experience 5 | deadline usefulness 5
+Unknown data is treated as neutral (partial credit), never as a failure.
+"""
+
+from app.utils.dates import days_remaining
+from app.utils.text import normalize_text
+
+WEIGHTS = {
+    "skills": 30.0,
+    "eligibility": 25.0,
+    "category": 15.0,
+    "education": 10.0,
+    "location": 10.0,
+    "experience": 5.0,
+    "deadline": 5.0,
+}
+
+GLOBAL_MARKERS = {"global", "worldwide", "any country", "international", "all countries", "open"}
+
+EXPERIENCE_ORDER = ["student", "beginner", "entry", "junior", "mid", "senior"]
+
+
+def _norm_set(values) -> set[str]:
+    return {normalize_text(v) for v in (values or []) if v and normalize_text(v)}
+
+
+def _skill_score(profile_skills: set[str], required: set[str], preferred: set[str]):
+    target = required | preferred
+    if not target:
+        return 0.6, [], []
+    matched = sorted(target & profile_skills)
+    missing = sorted(required - profile_skills)
+    if not profile_skills:
+        return 0.4, matched, missing
+    required_ratio = len(required & profile_skills) / len(required) if required else None
+    overall_ratio = len(matched) / len(target)
+    ratio = overall_ratio if required_ratio is None else (0.7 * required_ratio + 0.3 * overall_ratio)
+    return min(1.0, 0.15 + 0.85 * ratio), matched, missing
+
+
+def _eligibility(country: str | None, eligible: list[str]):
+    normalized = _norm_set(eligible)
+    if not normalized:
+        return 0.6, "uncertain", "Eligible countries are not stated on the source page"
+    if normalized & GLOBAL_MARKERS:
+        return 1.0, "eligible", "Open to applicants worldwide"
+    if not country:
+        return 0.5, "uncertain", "Add your country to your profile for eligibility checks"
+    c = normalize_text(country)
+    for item in normalized:
+        if c == item or c in item or item in c:
+            return 1.0, "eligible", f"Applicants from {country} are accepted"
+    return 0.15, "likely_ineligible", f"{country} is not listed among eligible countries"
+
+
+def _category(preferred: list[str], category: str | None):
+    if not preferred:
+        return 0.7, None
+    if category and category in {p.strip().lower() for p in preferred}:
+        return 1.0, f"Matches your interest in {category.replace('_', ' ')} opportunities"
+    return 0.3, None
+
+
+def _education(level: str | None, levels: list[str]):
+    normalized = _norm_set(levels)
+    if not normalized:
+        return 0.65, None
+    if not level:
+        return 0.5, None
+    n = normalize_text(level)
+    for item in normalized:
+        if n == item or n in item or item in n:
+            return 1.0, f"Open to {level} students"
+    return 0.35, None
+
+
+def _location(prefs: list[str], opp: dict):
+    prefs_n = {normalize_text(p) for p in (prefs or [])}
+    if not prefs_n:
+        return 0.7, None
+    if "global" in prefs_n:
+        return 1.0, None
+    if opp.get("remote") and "remote" in prefs_n:
+        return 1.0, "Fully remote, matching your preference"
+    if opp.get("hybrid") and "hybrid" in prefs_n:
+        return 0.9, "Hybrid participation available"
+    if opp.get("onsite") and "onsite" in prefs_n:
+        return 0.85, None
+    if opp.get("remote") is None and opp.get("hybrid") is None and opp.get("onsite") is None:
+        return 0.6, None
+    return 0.35, None
+
+
+def _experience(level: str | None, levels: list[str]):
+    normalized = _norm_set(levels)
+    if not normalized or not level:
+        return 0.65, None
+    n = normalize_text(level)
+    if any(n == item or n in item or item in n for item in normalized):
+        return 1.0, f"Suited to {level} experience level"
+    return 0.4, None
+
+
+def _deadline(deadline):
+    days = days_remaining(deadline)
+    if days is None:
+        return 0.5, None
+    if days < 0:
+        return 0.0, "Deadline has passed"
+    if days <= 7:
+        return 1.0, f"Closing in {days} day(s) — apply soon"
+    if days <= 45:
+        return 0.9, f"{days} days left to apply"
+    if days <= 180:
+        return 0.7, f"{days} days left to apply"
+    return 0.5, None
+
+
+def score_opportunity(opportunity: dict, profile: dict | None) -> dict:
+    profile = profile or {}
+    profile_skills = _norm_set(profile.get("skills")) | _norm_set(profile.get("interests"))
+
+    skill_s, matched, missing = _skill_score(
+        profile_skills,
+        _norm_set(opportunity.get("requiredSkills")),
+        _norm_set(opportunity.get("preferredSkills")),
+    )
+    elig_s, elig_status, elig_reason = _eligibility(
+        profile.get("country"), opportunity.get("countriesEligible") or []
+    )
+    cat_s, cat_reason = _category(
+        profile.get("preferredCategories") or [], opportunity.get("category")
+    )
+    edu_s, edu_reason = _education(
+        profile.get("educationLevel"), opportunity.get("educationLevels") or []
+    )
+    loc_s, loc_reason = _location(profile.get("locationPreference") or [], opportunity)
+    exp_s, exp_reason = _experience(
+        profile.get("experienceLevel"), opportunity.get("experienceLevels") or []
+    )
+    dl_s, dl_reason = _deadline(opportunity.get("deadline"))
+
+    breakdown = {
+        "skills": round(skill_s * WEIGHTS["skills"], 1),
+        "eligibility": round(elig_s * WEIGHTS["eligibility"], 1),
+        "category": round(cat_s * WEIGHTS["category"], 1),
+        "education": round(edu_s * WEIGHTS["education"], 1),
+        "location": round(loc_s * WEIGHTS["location"], 1),
+        "experience": round(exp_s * WEIGHTS["experience"], 1),
+        "deadline": round(dl_s * WEIGHTS["deadline"], 1),
+    }
+    total = int(round(sum(breakdown.values())))
+
+    if elig_status == "eligible" and total >= 70:
+        eligibility_status = "eligible"
+    elif elig_status == "likely_ineligible":
+        eligibility_status = "likely_ineligible"
+    elif elig_status == "eligible":
+        eligibility_status = "likely_eligible"
+    else:
+        eligibility_status = "uncertain"
+
+    reasons = []
+    if matched:
+        reasons.append("Skill overlap: " + ", ".join(sorted(matched)[:4]))
+    for reason in (elig_reason, cat_reason, edu_reason, loc_reason, exp_reason, dl_reason):
+        if reason:
+            reasons.append(reason)
+    if opportunity.get("fundingType"):
+        reasons.append(f"Funding: {opportunity['fundingType']}")
+
+    return {
+        "matchScore": max(0, min(100, total)),
+        "eligibilityStatus": eligibility_status,
+        "matchedSkills": [s.title() for s in matched][:12],
+        "missingSkills": [s.title() for s in missing][:12],
+        "matchingReasons": reasons[:6],
+        "breakdown": breakdown,
+    }
+
+
+--- END OF FILE: app\services\matching\engine.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\services\scrapper\dedupe.py ---
+
+"""Duplicate detection: canonical URL first, then organization+title+deadline fingerprint."""
+
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
+from app.models.opportunity import Opportunity
+
+
+async def find_existing(db: AsyncIOMotorDatabase, opportunity: Opportunity) -> dict | None:
+    doc = await db.opportunities.find_one({"canonicalUrl": opportunity.canonicalUrl})
+    if doc:
+        return doc
+    if opportunity.fingerprint:
+        return await db.opportunities.find_one({"fingerprint": opportunity.fingerprint})
+    return None
+
+
+def is_duplicate_of(existing: dict, opportunity: Opportunity) -> bool:
+    """True when the record matches by fingerprint but has a different URL."""
+    return (
+        bool(existing.get("fingerprint"))
+        and existing.get("fingerprint") == opportunity.fingerprint
+        and existing.get("canonicalUrl") != opportunity.canonicalUrl
+    )
+
+
+--- END OF FILE: app\services\scrapper\dedupe.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\services\scrapper\extract.py ---
+
+"""Deterministic extraction, cheapest strategy first.
+
+Priority: JSON-LD/schema.org -> meta tags -> CSS heuristics -> regex/date parsing.
+Groq is only invoked by the pipeline when this module cannot produce enough data.
+"""
+
+import json
+import re
+
+from bs4 import BeautifulSoup
+
+from app.utils.dates import extract_deadline, has_closed_marker, parse_date
+from app.utils.text import sanitize_display, strip_html, truncate
+
+CATEGORY_KEYWORDS = {
+    "scholarship": ("scholarship", "bursary", "tuition award", "studentship"),
+    "internship": ("internship", "intern programme", "intern program", "summer intern"),
+    "fellowship": ("fellowship", "fellow programme", "fellow program"),
+    "hackathon": ("hackathon", "hack day", "codefest", "datathon"),
+    "grant": ("grant", "funding call", "seed fund", "micro-grant"),
+    "competition": ("competition", "contest", "challenge", "olympiad", "award"),
+    "research": ("research programme", "research program", "reu", "research assistant", "phd position"),
+    "open_source": ("open source", "gsoc", "google summer of code", "outreachy", "hacktoberfest"),
+    "developer_program": ("developer program", "developer programme", "student ambassador", "dev program"),
+    "mentorship": ("mentorship", "mentoring programme", "mentoring program", "mentee"),
+}
+
+SKILL_VOCAB = [
+    "Python", "JavaScript", "TypeScript", "React", "Node.js", "Django", "Flask", "FastAPI",
+    "Java", "C++", "C#", "Go", "Rust", "Ruby", "PHP", "Swift", "Kotlin", "SQL", "NoSQL",
+    "MongoDB", "PostgreSQL", "AI", "Machine Learning", "Deep Learning", "Data Science",
+    "Data Analysis", "NLP", "Computer Vision", "Cybersecurity", "Blockchain", "Cloud",
+    "AWS", "Azure", "DevOps", "Docker", "Kubernetes", "Linux", "Git", "Open Source",
+    "UI/UX", "Figma", "Product Design", "Mobile Development", "Android", "iOS", "Robotics",
+    "Embedded Systems", "Quantum Computing", "Statistics", "Mathematics", "Research",
+]
+
+EDUCATION_VOCAB = {
+    "high school": ["high school", "secondary school", "pre-university"],
+    "undergraduate": ["undergraduate", "bachelor", "bsc", "b.tech", "college student"],
+    "masters": ["master", "msc", "m.tech", "graduate student", "postgraduate"],
+    "phd": ["phd", "doctoral", "doctorate"],
+    "postdoc": ["postdoc", "post-doctoral"],
+    "bootcamp": ["bootcamp", "self-taught"],
+}
+
+FIELD_VOCAB = [
+    "Computer Science", "Software Engineering", "Data Science", "Artificial Intelligence",
+    "Engineering", "Mathematics", "Physics", "Biology", "Chemistry", "Medicine",
+    "Economics", "Business", "Law", "Design", "Social Sciences", "Environmental Science",
+    "Information Technology", "Cybersecurity", "Electrical Engineering", "Mechanical Engineering",
+]
+
+FUNDING_PATTERNS = [
+    (r"fully[- ]funded", "fully_funded"),
+    (r"full scholarship", "fully_funded"),
+    (r"partial(?:ly)?[- ]funded", "partially_funded"),
+    (r"stipend", "stipend"),
+    (r"travel grant", "travel_grant"),
+    (r"prize pool", "prize"),
+    (r"cash prize", "prize"),
+    (r"unpaid", "unpaid"),
+    (r"paid internship", "paid"),
+]
+
+AMOUNT_RE = re.compile(
+    r"(?:(US\$|\$|€|£|₹|PKR|USD|EUR|GBP|INR)\s?([\d][\d,\.]{2,12})|([\d][\d,\.]{2,12})\s?(USD|EUR|GBP|INR|PKR))",
+    re.IGNORECASE,
+)
+CURRENCY_MAP = {"$": "USD", "us$": "USD", "€": "EUR", "£": "GBP", "₹": "INR"}
+
+REMOTE_RE = re.compile(r"\b(fully remote|remote[- ]first|work from home|remote)\b", re.IGNORECASE)
+HYBRID_RE = re.compile(r"\bhybrid\b", re.IGNORECASE)
+ONSITE_RE = re.compile(r"\b(on[- ]site|onsite|in[- ]person)\b", re.IGNORECASE)
+
+COUNTRY_LIST = [
+    "Pakistan", "India", "Bangladesh", "Nigeria", "Kenya", "Ghana", "South Africa", "Egypt",
+    "United States", "USA", "Canada", "United Kingdom", "UK", "Germany", "France", "Italy",
+    "Spain", "Netherlands", "Sweden", "Norway", "Denmark", "Finland", "Switzerland", "Ireland",
+    "Australia", "New Zealand", "Japan", "China", "South Korea", "Singapore", "Malaysia",
+    "Indonesia", "Philippines", "Vietnam", "Turkey", "Brazil", "Mexico", "Argentina", "Chile",
+    "Nepal", "Sri Lanka", "Morocco", "Tunisia", "Jordan", "UAE", "Saudi Arabia", "Qatar",
+]
+GLOBAL_RE = re.compile(
+    r"\b(open to (?:all|applicants from all|students from all)|worldwide|all nationalities|any country|international students|globally)\b",
+    re.IGNORECASE,
+)
+
+BULLET_LIMIT = 12
+
+
+def _soup(html: str) -> BeautifulSoup:
+    try:
+        return BeautifulSoup(html, "lxml")
+    except Exception:
+        return BeautifulSoup(html, "html.parser")
+
+
+def page_text(html: str) -> tuple[str, BeautifulSoup]:
+    soup = _soup(html)
+    for tag in soup(["script", "style", "nav", "footer", "header", "form", "noscript", "svg"]):
+        tag.decompose()
+    main = soup.find("article") or soup.find("main") or soup.body or soup
+    return strip_html(main.get_text(" ")), soup
+
+
+def extract_jsonld(soup: BeautifulSoup) -> dict:
+    """Parse schema.org JSON-LD blocks for the most useful opportunity types."""
+    out: dict = {}
+    for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+        raw = script.string or script.get_text() or ""
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        nodes = data if isinstance(data, list) else [data]
+        if isinstance(data, dict) and isinstance(data.get("@graph"), list):
+            nodes = data["@graph"]
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            types = node.get("@type")
+            types = [types] if isinstance(types, str) else (types or [])
+            types = [t.lower() for t in types if isinstance(t, str)]
+            if any(t in ("jobposting", "event", "educationaloccupationalprogram", "course", "article", "newsarticle", "blogposting", "webpage") for t in types):
+                out.setdefault("title", node.get("title") or node.get("name") or node.get("headline"))
+                desc = node.get("description")
+                if desc:
+                    out.setdefault("description", strip_html(desc))
+                org = node.get("hiringOrganization") or node.get("organizer") or node.get("provider") or node.get("publisher")
+                if isinstance(org, dict):
+                    out.setdefault("organization", org.get("name"))
+                elif isinstance(org, str):
+                    out.setdefault("organization", org)
+                deadline = (
+                    node.get("applicationDeadline")
+                    or node.get("validThrough")
+                    or node.get("endDate")
+                )
+                if deadline:
+                    out.setdefault("deadlineRaw", str(deadline))
+                start = node.get("datePosted") or node.get("startDate")
+                if start:
+                    out.setdefault("applicationOpenRaw", str(start))
+                loc = node.get("jobLocation") or node.get("location")
+                if isinstance(loc, dict):
+                    addr = loc.get("address")
+                    if isinstance(addr, dict):
+                        parts = [addr.get("addressLocality"), addr.get("addressCountry")]
+                        text = ", ".join([p for p in parts if isinstance(p, str)])
+                        if text:
+                            out.setdefault("locations", [text])
+                    elif isinstance(loc.get("name"), str):
+                        out.setdefault("locations", [loc["name"]])
+                if node.get("jobLocationType") == "TELECOMMUTE":
+                    out.setdefault("remote", True)
+    return {k: v for k, v in out.items() if v}
+
+
+def extract_meta(soup: BeautifulSoup) -> dict:
+    out: dict = {}
+
+    def meta(*names: str) -> str | None:
+        for name in names:
+            tag = soup.find("meta", attrs={"property": name}) or soup.find(
+                "meta", attrs={"name": name}
+            )
+            if tag and tag.get("content"):
+                return tag["content"].strip()
+        return None
+
+    out["title"] = meta("og:title", "twitter:title") or (
+        soup.title.get_text().strip() if soup.title else None
+    )
+    out["description"] = meta("og:description", "description", "twitter:description")
+    out["organization"] = meta("og:site_name", "author")
+    canonical = soup.find("link", attrs={"rel": "canonical"})
+    if canonical and canonical.get("href"):
+        out["canonical"] = canonical["href"].strip()
+    return {k: v for k, v in out.items() if v}
+
+
+def guess_category(text: str, hint: str | None = None) -> str:
+    lowered = text.lower()[:6000]
+    best, best_hits = hint or "other", 0
+    for category, keywords in CATEGORY_KEYWORDS.items():
+        hits = sum(lowered.count(k) for k in keywords)
+        if hits > best_hits:
+            best, best_hits = category, hits
+    if best_hits == 0 and hint:
+        return hint
+    return best
+
+
+def extract_skills(text: str) -> list[str]:
+    lowered = text.lower()
+    found = []
+    for skill in SKILL_VOCAB:
+        token = skill.lower()
+        pattern = r"(?<![a-z0-9])" + re.escape(token) + r"(?![a-z0-9])"
+        if re.search(pattern, lowered):
+            found.append(skill)
+    return found[:15]
+
+
+def extract_education_levels(text: str) -> list[str]:
+    lowered = text.lower()
+    return [level for level, terms in EDUCATION_VOCAB.items() if any(t in lowered for t in terms)]
+
+
+def extract_fields(text: str) -> list[str]:
+    lowered = text.lower()
+    return [f for f in FIELD_VOCAB if f.lower() in lowered][:8]
+
+
+def extract_countries(text: str) -> list[str]:
+    if GLOBAL_RE.search(text):
+        return ["Global"]
+    lowered = text.lower()
+    found = []
+    for country in COUNTRY_LIST:
+        if re.search(r"(?<![a-z])" + re.escape(country.lower()) + r"(?![a-z])", lowered):
+            found.append(country)
+    return found[:15]
+
+
+def extract_funding(text: str) -> tuple[str | None, float | None, str | None]:
+    lowered = text.lower()
+    funding_type = None
+    for pattern, label in FUNDING_PATTERNS:
+        if re.search(pattern, lowered):
+            funding_type = label
+            break
+    amount, currency = None, None
+    match = AMOUNT_RE.search(text)
+    if match:
+        symbol = (match.group(1) or match.group(4) or "").lower()
+        raw = match.group(2) or match.group(3) or ""
+        try:
+            amount = float(raw.replace(",", ""))
+        except ValueError:
+            amount = None
+        currency = CURRENCY_MAP.get(symbol, symbol.upper() or None)
+        if amount is not None and amount < 100:
+            amount, currency = None, None
+    return funding_type, amount, currency
+
+
+def extract_bullets(soup: BeautifulSoup, keywords: tuple[str, ...]) -> list[str]:
+    """Find list items under headings matching the given keywords."""
+    out: list[str] = []
+    for heading in soup.find_all(["h1", "h2", "h3", "h4", "strong", "b"]):
+        label = heading.get_text(" ").strip().lower()
+        if not label or len(label) > 90:
+            continue
+        if not any(k in label for k in keywords):
+            continue
+        node = heading.find_next(["ul", "ol", "p"])
+        if not node:
+            continue
+        if node.name in ("ul", "ol"):
+            for li in node.find_all("li", limit=BULLET_LIMIT):
+                value = strip_html(li.get_text(" "))
+                if 8 < len(value) < 300:
+                    out.append(value)
+        else:
+            value = strip_html(node.get_text(" "))
+            if 15 < len(value) < 400:
+                out.append(value)
+        if len(out) >= BULLET_LIMIT:
+            break
+    seen, unique = set(), []
+    for item in out:
+        if item.lower() not in seen:
+            seen.add(item.lower())
+            unique.append(item)
+    return unique[:BULLET_LIMIT]
+
+
+def deterministic_extract(url: str, html: str, category_hint: str | None = None) -> dict:
+    """Run the whole deterministic chain and report extraction confidence."""
+    text, raw_soup = page_text(html)
+    soup = _soup(html)
+
+    jsonld = extract_jsonld(soup)
+    meta = extract_meta(soup)
+
+    title = jsonld.get("title") or meta.get("title")
+    if title:
+        title = re.split(r"\s+[|\u2013\u2014-]\s+", title)[0].strip()[:220]
+
+    h1 = soup.find("h1")
+    if (not title or len(title) < 8) and h1:
+        title = strip_html(h1.get_text(" "))[:220]
+
+    description = sanitize_display(jsonld.get("description") or meta.get("description")) or truncate(
+        text, 900
+    )
+
+    deadline = parse_date(jsonld.get("deadlineRaw")) if jsonld.get("deadlineRaw") else None
+    deadline_text = jsonld.get("deadlineRaw") if deadline else None
+    if not deadline:
+        deadline, deadline_text = extract_deadline(text)
+
+    funding_type, funding_amount, currency = extract_funding(text)
+    countries = extract_countries(text)
+    remote = True if jsonld.get("remote") or REMOTE_RE.search(text) else None
+    hybrid = True if HYBRID_RE.search(text) else None
+    onsite = True if ONSITE_RE.search(text) else None
+
+    requirements = extract_bullets(
+        soup, ("requirement", "eligib", "who can apply", "criteria", "qualification")
+    )
+    benefits = extract_bullets(soup, ("benefit", "what you get", "award", "perks", "offer"))
+
+    eligibility_text = None
+    for heading in soup.find_all(["h2", "h3", "h4"]):
+        if "eligib" in heading.get_text(" ").lower():
+            node = heading.find_next(["p", "ul"])
+            if node:
+                eligibility_text = truncate(strip_html(node.get_text(" ")), 700)
+            break
+
+    result = {
+        "title": title,
+        "organization": jsonld.get("organization") or meta.get("organization"),
+        "description": description,
+        "shortDescription": truncate(description, 200),
+        "category": guess_category(f"{title or ''} {text}", category_hint),
+        "canonical": meta.get("canonical"),
+        "deadline": deadline,
+        "deadlineText": deadline_text,
+        "applicationOpenDate": parse_date(jsonld.get("applicationOpenRaw"))
+        if jsonld.get("applicationOpenRaw")
+        else None,
+        "countriesEligible": countries,
+        "locations": jsonld.get("locations") or [],
+        "remote": remote,
+        "hybrid": hybrid,
+        "onsite": onsite,
+        "educationLevels": extract_education_levels(text),
+        "fieldsOfStudy": extract_fields(text),
+        "requiredSkills": extract_skills(f"{title or ''} {text[:4000]}"),
+        "fundingType": funding_type,
+        "fundingAmount": funding_amount,
+        "currency": currency,
+        "requirements": requirements,
+        "benefits": benefits,
+        "eligibilityText": eligibility_text,
+        "closedMarker": has_closed_marker(text),
+        "text": text,
+        "usedJsonLd": bool(jsonld),
+    }
+
+    filled = sum(
+        1
+        for key in (
+            "title",
+            "organization",
+            "description",
+            "deadline",
+            "countriesEligible",
+            "requiredSkills",
+            "fundingType",
+            "requirements",
+        )
+        if result.get(key)
+    )
+    result["completeness"] = filled / 8
+    del raw_soup
+    return result
+
+
+--- END OF FILE: app\services\scrapper\extract.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\services\scrapper\fetcher.py ---
+
+"""HTTP fetching with polite defaults, robots.txt awareness and optional Crawl4AI.
+
+Crawl4AI / Playwright are imported lazily and only used when plain HTTP is
+insufficient, so normal API startup never initialises a browser.
+"""
+
+import asyncio
+import logging
+import urllib.robotparser as robotparser
+from dataclasses import dataclass
+from urllib.parse import urlparse
+
+import httpx
+
+from app.config import settings
+from app.utils.urls import is_public_http_url
+
+logger = logging.getLogger("orbit.scraper.fetch")
+
+_robots_cache: dict[str, robotparser.RobotFileParser | None] = {}
+_domain_locks: dict[str, asyncio.Lock] = {}
+
+
+@dataclass
+class FetchResult:
+    url: str
+    status: int
+    html: str | None
+    error: str | None = None
+    method: str = "httpx"
+
+    @property
+    def ok(self) -> bool:
+        return self.status == 200 and bool(self.html)
+
+    @property
+    def gone(self) -> bool:
+        return self.status in (404, 410)
+
+
+async def _robots_allowed(url: str) -> bool:
+    parsed = urlparse(url)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    if base not in _robots_cache:
+        parser: robotparser.RobotFileParser | None = robotparser.RobotFileParser()
+        parser.set_url(f"{base}/robots.txt")
+        try:
+            async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+                resp = await client.get(
+                    f"{base}/robots.txt", headers={"User-Agent": settings.scraper_user_agent}
+                )
+            if resp.status_code == 200 and len(resp.text) < 500_000:
+                parser.parse(resp.text.splitlines())
+            else:
+                parser = None
+        except httpx.HTTPError:
+            parser = None
+        _robots_cache[base] = parser
+    parser = _robots_cache[base]
+    if parser is None:
+        return True
+    try:
+        return parser.can_fetch(settings.scraper_user_agent, url)
+    except Exception:
+        return True
+
+
+def _lock_for(url: str) -> asyncio.Lock:
+    domain = urlparse(url).netloc
+    if domain not in _domain_locks:
+        _domain_locks[domain] = asyncio.Lock()
+    return _domain_locks[domain]
+
+
+async def fetch(url: str, crawl_delay: float = 1.0, respect_robots: bool = True) -> FetchResult:
+    if not is_public_http_url(url):
+        return FetchResult(url=url, status=0, html=None, error="blocked or non-public URL")
+    if respect_robots and not await _robots_allowed(url):
+        return FetchResult(url=url, status=0, html=None, error="disallowed by robots.txt")
+
+    headers = {
+        "User-Agent": settings.scraper_user_agent,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    async with _lock_for(url):
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(
+                    timeout=settings.scraper_timeout, follow_redirects=True, headers=headers
+                ) as client:
+                    resp = await client.get(url)
+                await asyncio.sleep(crawl_delay)
+                content_type = resp.headers.get("content-type", "")
+                if resp.status_code == 200 and (
+                    "html" in content_type or "xml" in content_type or not content_type
+                ):
+                    return FetchResult(url=str(resp.url), status=200, html=resp.text)
+                return FetchResult(
+                    url=str(resp.url),
+                    status=resp.status_code,
+                    html=None,
+                    error=f"unexpected response ({resp.status_code}, {content_type})",
+                )
+            except httpx.HTTPError as exc:
+                if attempt == 1:
+                    return FetchResult(url=url, status=0, html=None, error=str(exc)[:200])
+                await asyncio.sleep(1.5)
+    return FetchResult(url=url, status=0, html=None, error="unreachable")
+
+
+async def fetch_rendered(url: str) -> FetchResult:
+    """Render with Crawl4AI when plain HTTP yields no usable content.
+
+    Crawl4AI is an optional dependency; if unavailable we degrade gracefully.
+    """
+    if not is_public_http_url(url):
+        return FetchResult(url=url, status=0, html=None, error="blocked URL", method="crawl4ai")
+    try:
+        from crawl4ai import AsyncWebCrawler  # type: ignore
+    except Exception:
+        return FetchResult(
+            url=url, status=0, html=None, error="crawl4ai not installed", method="crawl4ai"
+        )
+    try:
+        async with AsyncWebCrawler(verbose=False) as crawler:
+            result = await crawler.arun(url=url, bypass_cache=True)
+        html = getattr(result, "html", None) or getattr(result, "cleaned_html", None)
+        if html:
+            return FetchResult(url=url, status=200, html=html, method="crawl4ai")
+        return FetchResult(
+            url=url, status=0, html=None, error="empty render", method="crawl4ai"
+        )
+    except Exception as exc:  # pragma: no cover - browser environment dependent
+        return FetchResult(url=url, status=0, html=None, error=str(exc)[:200], method="crawl4ai")
+
+
+--- END OF FILE: app\services\scrapper\fetcher.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\services\scrapper\normalize.py ---
+
+"""Merge deterministic + AI extraction into a validated Opportunity document."""
+
+from datetime import datetime, timezone
+
+from app.models.opportunity import CATEGORIES, Opportunity
+from app.utils.dates import days_remaining, parse_date
+from app.utils.text import content_hash, fingerprint, sanitize_display, slugify, truncate
+from app.utils.urls import canonicalize_url, domain_of
+
+MIN_TITLE_LEN = 10
+
+
+def _clean_list(values, limit: int = 20) -> list[str]:
+    out, seen = [], set()
+    for value in values or []:
+        if not isinstance(value, str):
+            continue
+        value = sanitize_display(value)
+        if not value or len(value) > 300:
+            continue
+        key = value.lower()
+        if key not in seen:
+            seen.add(key)
+            out.append(value)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def compute_status(deadline: datetime | None, closed: bool, verification: str) -> str:
+    if closed:
+        return "closed"
+    days = days_remaining(deadline)
+    if days is not None and days < 0:
+        return "expired"
+    if verification == "unverified":
+        return "unverified"
+    if days is not None and days <= 7:
+        return "closing_soon"
+    return "active"
+
+
+def build_opportunity(
+    url: str,
+    deterministic: dict,
+    ai: dict | None,
+    source_id: str | None,
+    source_type: str,
+) -> Opportunity | None:
+    """Combine extraction outputs. AI never overrides deterministic facts."""
+    ai = ai or {}
+
+    title = deterministic.get("title") or ai.get("title")
+    if not title or len(title.strip()) < MIN_TITLE_LEN:
+        return None
+
+    canonical_raw = deterministic.get("canonical") or url
+    canonical = canonicalize_url(canonical_raw) or canonicalize_url(url)
+    if not canonical:
+        return None
+
+    description = sanitize_display(deterministic.get("description") or ai.get("description"))
+    category = deterministic.get("category") or ai.get("category") or "other"
+    if category not in CATEGORIES:
+        category = "other"
+
+    deadline = deterministic.get("deadline")
+    deadline_text = deterministic.get("deadlineText")
+    if not deadline and ai.get("deadline"):
+        deadline = parse_date(str(ai["deadline"]))
+        deadline_text = str(ai["deadline"]) if deadline else None
+
+    countries = _clean_list(deterministic.get("countriesEligible") or ai.get("countriesEligible"))
+    education = _clean_list(deterministic.get("educationLevels") or ai.get("educationLevels"), 10)
+    fields = _clean_list(deterministic.get("fieldsOfStudy") or ai.get("fieldsOfStudy"), 10)
+    skills = _clean_list(deterministic.get("requiredSkills") or ai.get("requiredSkills"), 20)
+    requirements = _clean_list(deterministic.get("requirements") or ai.get("requirements"))
+    benefits = _clean_list(deterministic.get("benefits") or ai.get("benefits"))
+
+    funding_type = deterministic.get("fundingType") or ai.get("fundingType")
+    funding_amount = deterministic.get("fundingAmount")
+    if funding_amount is None and isinstance(ai.get("fundingAmount"), (int, float)):
+        funding_amount = float(ai["fundingAmount"])
+    currency = deterministic.get("currency") or ai.get("currency")
+
+    remote = deterministic.get("remote")
+    if remote is None and isinstance(ai.get("remote"), bool):
+        remote = ai["remote"]
+
+    ai_confidence = ai.get("confidence") if isinstance(ai.get("confidence"), (int, float)) else None
+    completeness = deterministic.get("completeness", 0)
+
+    is_primary = source_type in ("rss", "sitemap", "listing", "manual", "seed")
+    if is_primary and (deterministic.get("usedJsonLd") or completeness >= 0.5):
+        verification = "verified"
+    elif completeness >= 0.375 or (ai_confidence or 0) >= 0.7:
+        verification = "likely_verified"
+    else:
+        verification = "unverified"
+
+    now = datetime.now(timezone.utc)
+    text_for_hash = (deterministic.get("text") or "")[:20000]
+    chash = content_hash(title, description, text_for_hash)
+
+    application_url = ai.get("applicationUrl") if isinstance(ai.get("applicationUrl"), str) else None
+    if application_url:
+        application_url = canonicalize_url(application_url) or None
+
+    organization = sanitize_display(deterministic.get("organization") or ai.get("organization"))
+    if organization:
+        organization = organization[:140]
+
+    return Opportunity(
+        title=sanitize_display(title)[:220],
+        organization=organization or domain_of(canonical),
+        slug=slugify(title),
+        description=truncate(description, 4000),
+        shortDescription=truncate(description, 200),
+        category=category,
+        sourceUrl=url,
+        applicationUrl=application_url,
+        canonicalUrl=canonical,
+        sourceDomain=domain_of(canonical),
+        countriesEligible=countries,
+        locations=_clean_list(deterministic.get("locations"), 8),
+        remote=remote,
+        hybrid=deterministic.get("hybrid"),
+        onsite=deterministic.get("onsite"),
+        educationLevels=education,
+        fieldsOfStudy=fields,
+        requiredSkills=skills,
+        preferredSkills=[],
+        experienceLevels=[],
+        fundingType=funding_type,
+        fundingAmount=funding_amount,
+        currency=currency,
+        deadline=deadline,
+        deadlineText=truncate(deadline_text, 120),
+        applicationOpenDate=deterministic.get("applicationOpenDate"),
+        eligibilityText=truncate(deterministic.get("eligibilityText"), 900),
+        requirements=requirements,
+        benefits=benefits,
+        verified=verification == "verified",
+        verificationStatus=verification,
+        sourceType=source_type,
+        extractionMethod="jsonld+html" + ("+ai" if ai else ""),
+        aiConfidence=float(ai_confidence) if ai_confidence is not None else None,
+        status=compute_status(deadline, bool(deterministic.get("closedMarker")), verification),
+        scrapedAt=now,
+        lastSeenAt=now,
+        lastCheckedAt=now,
+        lastChangedAt=now,
+        contentHash=chash,
+        fingerprint=fingerprint(
+            organization or domain_of(canonical), title, deadline.isoformat() if deadline else None
+        ),
+        sourceId=source_id,
+        createdAt=now,
+        updatedAt=now,
+    )
+
+
+--- END OF FILE: app\services\scrapper\normalize.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\utils\__init__.py ---
+
+
+
+--- END OF FILE: app\utils\__init__.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\utils\dates.py ---
+
+import re
+from datetime import datetime, timezone
+
+import dateparser
+
+DEADLINE_PATTERNS = [
+    r"deadline[:\s]*(?:is\s*)?([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})",
+    r"deadline[:\s]*(\d{1,2}\s+[A-Z][a-z]+\s+\d{4})",
+    r"deadline[:\s]*(\d{4}-\d{2}-\d{2})",
+    r"apply(?:\s+)?(?:by|before)[:\s]*([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})",
+    r"closes?\s+on[:\s]*([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})",
+    r"applications?\s+close[sd]?[:\s]*(?:on\s*)?([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})",
+    r"last date[:\s]*(?:to apply\s*)?([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})",
+]
+
+CLOSED_MARKERS = (
+    "applications are closed",
+    "applications closed",
+    "application closed",
+    "deadline has passed",
+    "deadline passed",
+    "no longer accepting applications",
+    "this opportunity has expired",
+    "submissions are closed",
+)
+
+
+def parse_date(value: str | None) -> datetime | None:
+    """Parse a date string into a timezone-aware UTC datetime. Never guesses."""
+    if not value or not isinstance(value, str):
+        return None
+    value = value.strip()
+    if len(value) < 4 or len(value) > 120:
+        return None
+    dt = dateparser.parse(
+        value,
+        settings={
+            "RETURN_AS_TIMEZONE_AWARE": True,
+            "TIMEZONE": "UTC",
+            "TO_TIMEZONE": "UTC",
+            "PREFER_DATES_FROM": "future",
+            "STRICT_PARSING": False,
+        },
+    )
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def extract_deadline(text: str | None) -> tuple[datetime | None, str | None]:
+    """Extract a deadline from free text. Returns (datetime, original text)."""
+    if not text:
+        return None, None
+    for pattern in DEADLINE_PATTERNS:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            raw = match.group(1)
+            parsed = parse_date(raw)
+            if parsed:
+                return parsed, raw
+    return None, None
+
+
+def has_closed_marker(text: str | None) -> bool:
+    if not text:
+        return False
+    lowered = text.lower()
+    return any(marker in lowered for marker in CLOSED_MARKERS)
+
+
+def days_remaining(deadline: datetime | None) -> int | None:
+    if not deadline:
+        return None
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    delta = deadline - datetime.now(timezone.utc)
+    return int(delta.total_seconds() // 86400)
+
+
+--- END OF FILE: app\utils\dates.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\utils\logging.py ---
+
+import logging
+import sys
+
+
+def setup_logging(level: int = logging.INFO) -> None:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s | %(levelname)-7s | %(name)s | %(message)s")
+    )
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(level)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+--- END OF FILE: app\utils\logging.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\utils\text.py ---
+
+import hashlib
+import re
+import unicodedata
+
+TAG_RE = re.compile(r"<[^>]+>")
+WS_RE = re.compile(r"\s+")
+
+
+def strip_html(value: str | None) -> str:
+    if not value:
+        return ""
+    return WS_RE.sub(" ", TAG_RE.sub(" ", value)).strip()
+
+
+def normalize_text(value: str | None) -> str:
+    if not value:
+        return ""
+    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
+    value = re.sub(r"[^a-z0-9\s]", " ", value.lower())
+    return WS_RE.sub(" ", value).strip()
+
+
+def slugify(value: str, max_len: int = 80) -> str:
+    normalized = normalize_text(value).replace(" ", "-")
+    return normalized[:max_len].strip("-") or "opportunity"
+
+
+def content_hash(*parts: str | None) -> str:
+    joined = "\u0001".join(normalize_text(p) for p in parts if p)
+    return hashlib.sha256(joined.encode()).hexdigest()
+
+
+def fingerprint(organization: str | None, title: str | None, deadline_iso: str | None) -> str:
+    return hashlib.sha1(
+        "|".join(
+            [normalize_text(organization), normalize_text(title), (deadline_iso or "")[:10]]
+        ).encode()
+    ).hexdigest()
+
+
+def truncate(value: str | None, limit: int = 240) -> str | None:
+    if not value:
+        return None
+    value = value.strip()
+    if len(value) <= limit:
+        return value
+    return value[: limit - 1].rsplit(" ", 1)[0] + "\u2026"
+
+
+def sanitize_display(value: str | None) -> str | None:
+    """Remove markup/script content from text that will be rendered."""
+    if not value:
+        return None
+    cleaned = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", value)
+    return strip_html(cleaned) or None
+
+
+--- END OF FILE: app\utils\text.py ---
+
+================================================================================
+
+
+--- START OF FILE: app\utils\urls.py ---
+
+import ipaddress
+import socket
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+TRACKING_PREFIXES = ("utm_",)
+TRACKING_KEYS = {
+    "fbclid",
+    "gclid",
+    "gclsrc",
+    "dclid",
+    "msclkid",
+    "mc_cid",
+    "mc_eid",
+    "igshid",
+    "ref",
+    "ref_src",
+    "source",
+    "_hsenc",
+    "_hsmi",
+    "yclid",
+    "wickedid",
+}
+
+BLOCKED_EXTENSIONS = (
+    ".pdf",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".svg",
+    ".zip",
+    ".mp4",
+    ".mp3",
+    ".css",
+    ".js",
+)
+
+
+def canonicalize_url(url: str) -> str:
+    """Normalize a URL: strip tracking params, fragments, trailing slash, lowercase host."""
+    if not url:
+        return ""
+    url = url.strip()
+    parsed = urlparse(url)
+    scheme = (parsed.scheme or "https").lower()
+    if scheme not in ("http", "https"):
+        return ""
+    netloc = parsed.netloc.lower()
+    if netloc.startswith("www."):
+        netloc = netloc[4:]
+    if netloc.endswith(":80") or netloc.endswith(":443"):
+        netloc = netloc.rsplit(":", 1)[0]
+
+    query_pairs = [
+        (k, v)
+        for k, v in parse_qsl(parsed.query, keep_blank_values=False)
+        if k.lower() not in TRACKING_KEYS
+        and not any(k.lower().startswith(p) for p in TRACKING_PREFIXES)
+    ]
+    query = urlencode(sorted(query_pairs))
+
+    path = parsed.path or "/"
+    if len(path) > 1 and path.endswith("/"):
+        path = path.rstrip("/")
+
+    return urlunparse((scheme, netloc, path, "", query, ""))
+
+
+def domain_of(url: str) -> str:
+    netloc = urlparse(url).netloc.lower()
+    return netloc[4:] if netloc.startswith("www.") else netloc
+
+
+def is_public_http_url(url: str) -> bool:
+    """SSRF guard: only public http(s) hosts, no private/loopback addresses."""
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return False
+    host = parsed.hostname
+    if host in ("localhost",) or host.endswith(".local") or host.endswith(".internal"):
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        return False
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            return False
+    return True
+
+
+def looks_like_content_url(url: str) -> bool:
+    lowered = url.lower()
+    if any(lowered.endswith(ext) for ext in BLOCKED_EXTENSIONS):
+        return False
+    path = urlparse(lowered).path
+    return len(path) > 8
+
+
+--- END OF FILE: app\utils\urls.py ---
+
+================================================================================
+

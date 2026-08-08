@@ -1,0 +1,3 @@
+# Optional browser-rendered scraping fallback.
+# Install only when you need JS-heavy pages:
+crawl4ai>=0.7,<1
