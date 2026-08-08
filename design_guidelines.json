@@ -1,0 +1,121 @@
+{
+  "theme": "dark and light mode (System preferred, default dark)",
+  "typography": {
+    "headings": "Outfit, sans-serif",
+    "body": "IBM Plex Sans, sans-serif",
+    "mono": "JetBrains Mono, monospace",
+    "rules": [
+      "Use Outfit for H1-H4. Apply tracking-tight for sizes above 24px.",
+      "Use IBM Plex Sans for all body text, paragraphs, and descriptions.",
+      "Use JetBrains Mono for metadata, tags, match scores, days remaining, and table data. This creates a developer-focused, technical aesthetic.",
+      "NEVER use generic fonts like Inter or Roboto for headings."
+    ]
+  },
+  "colors": {
+    "archetype": "Swiss & High-Contrast (Tech/Dev)",
+    "dark": {
+      "background": "#050505",
+      "surface": "#121214",
+      "surface_hover": "#1A1A1D",
+      "border": "rgba(255, 255, 255, 0.08)",
+      "text_primary": "#FFFFFF",
+      "text_secondary": "#A1A1AA",
+      "accent": "#00F0FF",
+      "accent_muted": "rgba(0, 240, 255, 0.15)",
+      "urgent": "#FF3366",
+      "success": "#00E676"
+    },
+    "light": {
+      "background": "#FDFDFD",
+      "surface": "#FFFFFF",
+      "surface_hover": "#F4F4F5",
+      "border": "rgba(0, 0, 0, 0.08)",
+      "text_primary": "#09090B",
+      "text_secondary": "#52525B",
+      "accent": "#0055FF",
+      "accent_muted": "rgba(0, 85, 255, 0.1)",
+      "urgent": "#E11D48",
+      "success": "#16A34A"
+    },
+    "rules": [
+      "Do NOT use dozen gradient cards. Stick to flat, solid colors with very subtle 1px borders.",
+      "Accent color (Electric Blue/Cyan) should be used SPARINGLY to draw attention (e.g., Match Score rings, active tab indicators, primary buttons).",
+      "Use 'urgent' color for 'Closing Soon' tags or deadlines < 3 days."
+    ]
+  },
+  "visual_enhancers": {
+    "shadows": "Minimal. Rely on 1px borders (border-collapse style) rather than heavy drop shadows to define structure.",
+    "borders": "1px solid borders everywhere for that technical, high-information-density look.",
+    "radius": "Slight. rounded-md (6px) or rounded-sm (4px). Avoid fully rounded pills unless it's a specific tag.",
+    "textures": "Include a subtle noise overlay on the dark theme background to reduce flatness."
+  },
+  "components": {
+    "opportunity_card": {
+      "style": "High-density rectangle, not a fluffy card. Grid layout inside the card.",
+      "elements": [
+        "Header: Organization name + Verification Shield icon.",
+        "Title: H3/H4 size, truncate to 2 lines.",
+        "Match Score: prominently displayed, perhaps a small circular SVG ring or a bold mono percentage text.",
+        "Metadata row: Location, Remote indicator, Funding.",
+        "Footer: Deadline (mono font, urgency color if near), Save button (Lucide Bookmark)."
+      ]
+    },
+    "badges": {
+      "style": "Uppercase, mono font, tiny text (text-xs), wide tracking (tracking-widest)."
+    },
+    "onboarding": {
+      "style": "Clean, distraction-free central column. Progress indicator at the top using a thin line or minimal steps."
+    },
+    "navigation": {
+      "style": "Side navigation for dashboard. Icons (Lucide) + Text. Active state indicated by a left 2px border in accent color."
+    }
+  },
+  "layouts": {
+    "marketing": "Asymmetrical bento-style grid for features. Hero section should feel like a command center.",
+    "dashboard": "High-density grid. md:grid-cols-3 lg:grid-cols-4 for tiles. 'For You' feed takes up main column (col-span-2 or 3), right sidebar for 'Closing Soon' or 'Saved' summaries."
+  },
+  "motion": {
+    "rules": [
+      "Subtle and purposeful. No bouncy or excessive animations.",
+      "Use framer-motion for list staggering (staggerChildren: 0.05).",
+      "Hover states: Change border color and background slightly. Do NOT lift the card (no -translate-y)."
+    ]
+  },
+  "icons": {
+    "library": "lucide-react",
+    "rules": "Use Lucide icons exclusively. Do NOT use emojis for any UI element."
+  },
+  "media": {
+    "image_urls": {
+      "hero_background": {
+        "url": "https://images.unsplash.com/photo-1758073519996-6d3c63b4922c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGRhcmslMjBkaWdpdGFsJTIwbmV0d29ya3xlbnwwfHx8fDE3ODYxNzg1NDh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract blue glowing dots forming wave patterns, used as a low-opacity background for the landing page hero."
+      },
+      "student_persona": {
+        "url": "https://images.unsplash.com/photo-1719400471588-575b23e27bd7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwyfHxzdHVkZW50JTIwY29kaW5nJTIwZGFyayUyMHJvb218ZW58MHx8fHwxNzg2MTc4NTQ4fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Student coding in a dark room with monitors, used in marketing or onboarding sections."
+      }
+    }
+  },
+  "libraries": {
+    "ui": ["shadcn/ui", "tailwind-merge", "clsx", "lucide-react"],
+    "animation": ["framer-motion"],
+    "charts": ["recharts", "for ingestion status dashboard if needed"]
+  },
+  "instructions_to_main_agent": [
+    "Build standard React components (.js/.jsx) using Tailwind CSS. NO Next.js.",
+    "Implement a theme toggle (light/dark) in the UI.",
+    "Prioritize information density on the dashboard. Use tables and tight grids.",
+    "Ensure 'Match Score' is visually prominent using the accent color.",
+    "Do NOT use generic gradient cards. Use flat surfaces with precise 1px borders.",
+    "Add data-testid attributes to all interactive elements."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not converge toward generic AI slop. Make it look like a premium developer tool (think Vercel, Linear, or Raycast).",
+    "Use glass-morphism effects with backdrop-blur only where appropriate (like sticky headers).",
+    "Never apply transition: all.",
+    "Do not center-align the app container. Keep text left-aligned for natural reading.",
+    "Every interaction needs micro-animations - hover states, focus rings.",
+    "Never use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons. Use Lucide."
+  ]
+}
