@@ -17,3 +17,4 @@ __pycache__/
 htmlcov/
 
 code.py
+memory/test_credentials.md
