@@ -1,33 +1,35 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-  --chart-1: 221 83% 53%;
-  --chart-2: 160 84% 39%;
-  --chart-3: 38 92% 50%;
-  --chart-4: 262 83% 58%;
-  --chart-5: 0 84% 60%;
-  --radius: 0.75rem;
+  --background: 165 31% 5%;
+  --foreground: 160 31% 95%;
+  --card: 164 31% 7%;
+  --card-foreground: 160 31% 95%;
+  --popover: 164 31% 7%;
+  --popover-foreground: 160 31% 95%;
+  --primary: 76 100% 71%;
+  --primary-foreground: 155 33% 9%;
+  --secondary: 164 26% 10%;
+  --secondary-foreground: 160 31% 95%;
+  --muted: 164 20% 12%;
+  --muted-foreground: 158 10% 60%;
+  --accent: 164 25% 12%;
+  --accent-foreground: 160 31% 95%;
+  --destructive: 0 66% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 160 14% 17%;
+  --input: 160 14% 17%;
+  --ring: 76 100% 71%;
+  --chart-1: 76 100% 71%;
+  --chart-2: 160 80% 68%;
+  --chart-3: 210 100% 73%;
+  --chart-4: 39 100% 71%;
+  --chart-5: 270 70% 72%;
+  --radius: 0.85rem;
 }
 
 * { box-sizing: border-box; }
@@ -35,16 +37,21 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   min-width: 320px;
-  background: #f6f7f9;
-  color: #0f172a;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #07100f;
+  color: #eef7f4;
+  font-family: "DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+h1, h2, h3, h4, .font-display {
+  font-family: "Manrope", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; text-decoration: none; }
-::selection { background: #dbeafe; color: #172554; }
+::selection { background: rgba(213, 255, 105, .86); color: #07100f; }
 
 @layer base {
   * { @apply border-border; }
@@ -59,6 +66,242 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
+.orbit-app-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 85% 0%, rgba(105,240,192,.10), transparent 25%),
+    radial-gradient(circle at 20% 8%, rgba(118,186,255,.07), transparent 24%),
+    #07100f;
+}
+
+.orbit-app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .026;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
+}
+
+/* Keep Tailwind positioning utilities (`fixed`, `sticky`, etc.) intact.
+   The previous direct-child rule forced the fixed sidebar back into normal flow,
+   which pushed the page content one viewport-height downward. */
+.orbit-panel { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.orbit-dot-grid {
+  background-image: radial-gradient(rgba(255,255,255,.11) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.orbit-gradient-text {
+  background: linear-gradient(100deg, #ffffff, #d5ff69 55%, #69f0c0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.orbit-match-ring {
+  background: conic-gradient(#d5ff69 calc(var(--match) * 1%), rgba(255,255,255,.08) 0);
+}
+
+.orbit-radar-grid {
+  background:
+    repeating-radial-gradient(circle at center, transparent 0 31px, rgba(137,163,156,.14) 32px 33px),
+    linear-gradient(90deg, transparent 49.5%, rgba(137,163,156,.1) 50%, transparent 50.5%),
+    linear-gradient(0deg, transparent 49.5%, rgba(137,163,156,.1) 50%, transparent 50.5%);
+}
+
+.orbit-radar-sweep {
+  background: conic-gradient(from 0deg, transparent 0 78%, rgba(105,240,192,.03) 80%, rgba(105,240,192,.28) 96%, transparent 100%);
+  animation: orbit-spin 5s linear infinite;
+  transform-origin: center;
+}
+
+.orbit-float { animation: orbit-float 6s ease-in-out infinite; }
+.orbit-pulse-ring { animation: orbit-pulse-ring 2.2s cubic-bezier(.2,.7,.2,1) infinite; }
+.orbit-scan-line { animation: orbit-scan 3.5s linear infinite; }
+
+.orbit-nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  width: 3px;
+  height: 26px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  background: #d5ff69;
+  box-shadow: 0 0 18px rgba(213,255,105,.55);
+}
+
+@keyframes orbit-spin { to { transform: rotate(360deg); } }
+@keyframes orbit-float {
+  0%, 100% { transform: translate(0,0); }
+  50% { transform: translate(5px,-9px); }
+}
+@keyframes orbit-pulse-ring {
+  0% { transform: scale(.75); opacity: .8; }
+  80%, 100% { transform: scale(1.7); opacity: 0; }
+}
+@keyframes orbit-scan {
+  0% { transform: translateY(-12px); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateY(108px); opacity: 0; }
+}
+
+/* Dark-theme compatibility for the existing protected pages. These overrides only
+   affect presentation inside the app shell; route logic and handlers stay untouched. */
+.orbit-app-shell .bg-white { background-color: #0d1917 !important; }
+.orbit-app-shell .bg-slate-50 { background-color: #0b1614 !important; }
+.orbit-app-shell .bg-slate-100 { background-color: rgba(255,255,255,.055) !important; }
+.orbit-app-shell .bg-blue-50 { background-color: rgba(118,186,255,.07) !important; }
+.orbit-app-shell .bg-emerald-50 { background-color: rgba(105,240,192,.07) !important; }
+.orbit-app-shell .bg-amber-50 { background-color: rgba(255,203,107,.07) !important; }
+.orbit-app-shell .bg-red-50 { background-color: rgba(248,113,113,.07) !important; }
+.orbit-app-shell .bg-slate-950 { background-color: #0a1513 !important; }
+
+.orbit-app-shell .text-slate-950,
+.orbit-app-shell .text-slate-900,
+.orbit-app-shell .text-slate-800,
+.orbit-app-shell .text-slate-700 { color: #eef7f4 !important; }
+.orbit-app-shell .text-slate-600 { color: #a4b4af !important; }
+.orbit-app-shell .text-slate-500 { color: #82958f !important; }
+.orbit-app-shell .text-slate-400 { color: #6f847e !important; }
+.orbit-app-shell .text-blue-600,
+.orbit-app-shell .text-blue-700 { color: #d5ff69 !important; }
+
+.orbit-app-shell .border-slate-100,
+.orbit-app-shell .border-slate-200,
+.orbit-app-shell .border-slate-300 { border-color: rgba(255,255,255,.075) !important; }
+.orbit-app-shell .border-blue-100,
+.orbit-app-shell .border-blue-200 { border-color: rgba(118,186,255,.12) !important; }
+
+.orbit-app-shell input,
+.orbit-app-shell select,
+.orbit-app-shell textarea {
+  color: #eef7f4;
+  background-color: #081310;
+  border-color: rgba(255,255,255,.09);
+}
+.orbit-app-shell input::placeholder,
+.orbit-app-shell textarea::placeholder { color: #586d67; }
+.orbit-app-shell input:focus,
+.orbit-app-shell select:focus,
+.orbit-app-shell textarea:focus {
+  border-color: rgba(213,255,105,.28) !important;
+  box-shadow: 0 0 0 4px rgba(213,255,105,.045) !important;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border: 3px solid transparent; background-clip: padding-box; border-radius: 999px; }
+::-webkit-scrollbar-thumb { background: #1b302d; border-radius: 999px; }
+
+@media (max-width: 640px) {
+  .orbit-nav-link.active::before { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-float,
+  .orbit-pulse-ring,
+  .orbit-scan-line,
+  .orbit-radar-sweep { animation: none !important; }
+}
+
+/* V2 — full-surface reference theme. Public/auth/onboarding are intentionally scoped
+   so application logic and non-visual handlers remain unchanged. */
+.orbit-public-shell {
+  background:
+    radial-gradient(circle at 84% 0%, rgba(105,240,192,.10), transparent 26%),
+    radial-gradient(circle at 16% 12%, rgba(118,186,255,.07), transparent 25%),
+    #07100f !important;
+  color: #eef7f4;
+}
+.orbit-public-shell input,
+.orbit-public-shell select,
+.orbit-public-shell textarea {
+  border-color: rgba(255,255,255,.08) !important;
+  background: #081310 !important;
+  color: #eef7f4 !important;
+  box-shadow: none !important;
+}
+.orbit-public-shell input::placeholder,
+.orbit-public-shell textarea::placeholder { color:#526761 !important; }
+.orbit-public-shell input:focus,
+.orbit-public-shell select:focus,
+.orbit-public-shell textarea:focus {
+  border-color: rgba(213,255,105,.28) !important;
+  box-shadow: 0 0 0 4px rgba(213,255,105,.045) !important;
+}
+.orbit-public-shell label > span { color:#9aada7; }
+.orbit-onboarding .bg-white { background-color:#0c1715 !important; }
+.orbit-onboarding .bg-slate-50 { background-color:#081310 !important; }
+.orbit-onboarding .bg-slate-100 { background-color:rgba(255,255,255,.05) !important; }
+.orbit-onboarding .bg-slate-200 { background-color:rgba(255,255,255,.08) !important; }
+.orbit-onboarding .border-slate-100,
+.orbit-onboarding .border-slate-200,
+.orbit-onboarding .border-slate-300 { border-color:rgba(255,255,255,.08) !important; }
+.orbit-onboarding .text-slate-950,
+.orbit-onboarding .text-slate-900,
+.orbit-onboarding .text-slate-800,
+.orbit-onboarding .text-slate-700 { color:#eef7f4 !important; }
+.orbit-onboarding .text-slate-600 { color:#a0b2ad !important; }
+.orbit-onboarding .text-slate-500,
+.orbit-onboarding .text-slate-400 { color:#71857f !important; }
+.orbit-onboarding .text-blue-600,
+.orbit-onboarding .text-blue-700,
+.orbit-onboarding .text-blue-800 { color:#d5ff69 !important; }
+.orbit-onboarding .bg-blue-600,
+.orbit-onboarding .bg-slate-950 { background-color:#eafdb7 !important; color:#102016 !important; }
+.orbit-onboarding .bg-blue-50,
+.orbit-onboarding .bg-blue-100 { background-color:rgba(213,255,105,.055) !important; }
+.orbit-onboarding .border-blue-100,
+.orbit-onboarding .border-blue-200 { border-color:rgba(213,255,105,.12) !important; }
+.orbit-onboarding [class*="rounded-[28px]"] {
+  box-shadow: inset 0 1px rgba(255,255,255,.025), 0 22px 55px rgba(0,0,0,.18) !important;
+}
+
+/* V4 desktop shell layout fix: explicit 2-column flex layout.
+   This does not depend on Tailwind's `fixed` utility, so the content can never
+   fall below the sidebar on desktop. */
+.orbit-desktop-layout {
+  min-height: 100vh;
+}
+
+.orbit-desktop-sidebar {
+  display: none;
+}
+
+.orbit-desktop-content {
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  .orbit-desktop-layout {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  .orbit-desktop-sidebar {
+    display: block;
+    flex: 0 0 238px;
+    width: 238px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    z-index: 30;
+  }
+
+  .orbit-desktop-content {
+    flex: 1 1 auto;
+    width: calc(100% - 238px);
+    min-width: 0;
+  }
+}

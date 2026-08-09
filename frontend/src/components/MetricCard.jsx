@@ -1,21 +1,24 @@
 export default function MetricCard({ label, value, hint, icon: Icon, tone = "slate" }) {
-  const tones = {
-    slate: "bg-slate-950 text-white",
-    blue: "bg-blue-600 text-white",
-    amber: "bg-amber-50 text-amber-950 border-amber-100",
-    white: "bg-white text-slate-950 border-slate-200",
-  };
+  const accent = {
+    slate: "text-[#d5ff69]",
+    blue: "text-[#76baff]",
+    amber: "text-[#ffcb6b]",
+    white: "text-[#69f0c0]",
+  }[tone] || "text-[#d5ff69]";
+
   return (
-    <div className={`rounded-2xl border p-5 shadow-sm ${tones[tone]}`}>
+    <div className="orbit-panel rounded-2xl border border-white/[.075] bg-[#0c1715] p-4 shadow-[inset_0_1px_rgba(255,255,255,.02),0_14px_35px_rgba(0,0,0,.14)]">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${tone === "slate" || tone === "blue" ? "text-white/60" : "text-slate-500"}`}>{label}</p>
-          <p className="mt-3 text-3xl font-black tracking-tight">{value}</p>
-          {hint && <p className={`mt-1.5 text-xs ${tone === "slate" || tone === "blue" ? "text-white/60" : "text-slate-500"}`}>{hint}</p>}
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium text-[#738781]">{label}</p>
+          <div className="mt-3 flex items-end gap-2">
+            <p className="font-display text-2xl font-extrabold tracking-tight text-white">{value}</p>
+            {hint && <p className={`mb-1 truncate text-[10px] ${accent}`}>{hint}</p>}
+          </div>
         </div>
         {Icon && (
-          <div className={`grid h-10 w-10 place-items-center rounded-xl ${tone === "slate" || tone === "blue" ? "bg-white/10" : "bg-slate-100"}`}>
-            <Icon size={18} />
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-white/[.06] bg-white/[.025] text-[#738781]">
+            <Icon size={15} />
           </div>
         )}
       </div>

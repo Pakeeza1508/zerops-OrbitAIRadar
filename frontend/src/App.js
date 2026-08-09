@@ -639,246 +639,83 @@ function LandingPage() {
   };
 
   const examples = [
-    {
-      score: 96,
-      title: "Open-source mentorship",
-      meta: "Global · Paid · 235 days",
-    },
-    {
-      score: 92,
-      title: "AI research fellowship",
-      meta: "Remote · Fully funded · 21 days",
-    },
-    {
-      score: 89,
-      title: "Build for Climate",
-      meta: "Online · $10K prizes · 10 days",
-    },
+    { score: 96, title: "Open-source mentorship", meta: "Global · Paid · 235 days" },
+    { score: 92, title: "AI research fellowship", meta: "Remote · Fully funded · 21 days" },
+    { score: 89, title: "Build for Climate", meta: "Online · $10K prizes · 10 days" },
   ];
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#f7f8fa] text-slate-950">
-      <header className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
-        <OrbitLogo />
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate("/login")}
-            className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-white"
-          >
-            Sign in
-          </button>
-
-          <button
-            onClick={() => navigate("/register")}
-            className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-sm"
-          >
-            Build my radar
-          </button>
+    <div className="orbit-public-shell min-h-screen overflow-hidden bg-[#07100f] text-[#eef7f4]">
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] h-px bg-gradient-to-r from-transparent via-[#d5ff69]/35 to-transparent" />
+      <header className="relative z-20 mx-auto flex h-[78px] max-w-[1380px] items-center justify-between border-b border-white/[.055] px-5 sm:px-8">
+        <OrbitLogo inverse />
+        <div className="flex items-center gap-2.5">
+          <button onClick={() => navigate("/login")} className="rounded-xl border border-white/[.08] bg-white/[.03] px-4 py-2.5 text-xs font-bold text-[#a9bbb6] transition hover:bg-white/[.06] hover:text-white">Sign in</button>
+          <button onClick={() => navigate("/register")} className="rounded-xl bg-[#eafdb7] px-4 py-2.5 text-xs font-black text-[#102016] transition hover:brightness-110">Build my radar</button>
         </div>
       </header>
 
       <main>
-        <section className="relative mx-auto max-w-7xl px-5 pb-20 pt-14 sm:px-8 lg:grid lg:grid-cols-[1.03fr_.97fr] lg:items-center lg:gap-14 lg:pb-28 lg:pt-20">
-          <div className="relative z-10 max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Continuous opportunity intelligence
+        <section className="relative mx-auto grid max-w-[1380px] gap-12 px-5 pb-20 pt-14 sm:px-8 lg:grid-cols-[1.02fr_.98fr] lg:items-center lg:pb-24 lg:pt-20">
+          <div className="relative z-10 max-w-[720px]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/[.08] bg-white/[.035] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.18em] text-[#9bb1aa]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#69f0c0] shadow-[0_0_10px_#69f0c0]" /> Continuous opportunity intelligence
             </div>
-
-            <h1 className="mt-7 text-5xl font-black leading-[0.98] tracking-[-0.05em] sm:text-6xl lg:text-7xl">
-              Tell Orbit who you are once.{" "}
-              <span className="text-blue-600">
-                Never miss an opportunity again.
-              </span>
+            <h1 className="font-display mt-7 text-[44px] font-extrabold leading-[.98] tracking-[-.055em] text-white sm:text-[62px] lg:text-[72px]">
+              The opportunity that changes your life may already be <span className="orbit-gradient-text">online.</span>
             </h1>
-
-            <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
-              Orbit discovers scholarships, fellowships,
-              internships, hackathons and open-source
-              programs, verifies the source, checks your
-              fit, and ranks what deserves your attention.
+            <p className="mt-7 max-w-2xl text-[15px] leading-7 text-[#91a59f] sm:text-[17px] sm:leading-8">
+              Tell Orbit who you are once. It continuously discovers, verifies and ranks scholarships, fellowships, internships, hackathons and open-source programs around your profile.
             </p>
-
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button
-                onClick={() => navigate("/register")}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-4 text-sm font-black text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5"
-              >
-                Build my opportunity radar
-                <ArrowRight size={16} />
-              </button>
-
-              <button
-                onClick={openDemo}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-700"
-              >
-                Explore demo
-                <Play size={15} />
-              </button>
+              <button onClick={() => navigate("/register")} className="flex items-center justify-center gap-2 rounded-xl bg-[#eafdb7] px-5 py-3.5 text-sm font-black text-[#102016] transition hover:-translate-y-0.5 hover:brightness-110">Build my opportunity radar <ArrowRight size={16} /></button>
+              <button onClick={openDemo} className="flex items-center justify-center gap-2 rounded-xl border border-white/[.09] bg-white/[.035] px-5 py-3.5 text-sm font-bold text-[#c4d2ce] transition hover:-translate-y-0.5 hover:bg-white/[.06]">Explore demo <Play size={15} /></button>
             </div>
-
-            <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-xs font-semibold text-slate-500">
-              <span className="flex items-center gap-2">
-                <CheckCircle2
-                  size={15}
-                  className="text-emerald-600"
-                />
-                Official-source verification
-              </span>
-
-              <span className="flex items-center gap-2">
-                <CheckCircle2
-                  size={15}
-                  className="text-emerald-600"
-                />
-                Deadline intelligence
-              </span>
-
-              <span className="flex items-center gap-2">
-                <CheckCircle2
-                  size={15}
-                  className="text-emerald-600"
-                />
-                Personal fit scoring
-              </span>
+            <div className="mt-9 flex flex-wrap gap-x-7 gap-y-3 text-[11px] font-semibold text-[#71857f]">
+              <span className="flex items-center gap-2"><CheckCircle2 size={14} className="text-[#69f0c0]" /> Official-source verification</span>
+              <span className="flex items-center gap-2"><CheckCircle2 size={14} className="text-[#69f0c0]" /> Deadline intelligence</span>
+              <span className="flex items-center gap-2"><CheckCircle2 size={14} className="text-[#69f0c0]" /> Personal fit scoring</span>
             </div>
           </div>
 
-          <div className="relative mt-14 lg:mt-0">
-            <div className="absolute -inset-16 -z-10 rounded-full bg-blue-100/60 blur-3xl" />
-
-            <div className="rounded-[30px] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-950/10 sm:p-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-5">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                    Your Opportunity Radar
-                  </p>
-
-                  <p className="mt-1 text-xl font-black">
-                    37 high-fit matches
-                  </p>
-                </div>
-
-                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-600">
-                  <Radar size={20} />
-                </div>
+          <div className="relative lg:pl-4">
+            <div className="absolute -inset-20 -z-10 rounded-full bg-[#69f0c0]/[.05] blur-3xl" />
+            <div className="orbit-panel relative overflow-hidden rounded-[30px] border border-white/[.075] bg-[#0d1917] p-5 shadow-[0_28px_80px_rgba(0,0,0,.34)] sm:p-6">
+              <div className="orbit-dot-grid absolute inset-0 opacity-[.12]" />
+              <div className="relative z-10 flex items-center justify-between border-b border-white/[.06] pb-5">
+                <div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#6f847e]">Your Opportunity Radar</p><p className="font-display mt-1 text-xl font-extrabold text-white">37 high-fit matches</p></div>
+                <div className="relative h-12 w-12 rounded-full border border-white/[.08] bg-[#081310] orbit-radar-grid"><div className="orbit-radar-sweep absolute inset-0 rounded-full" /><span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d5ff69] shadow-[0_0_12px_#d5ff69]" /></div>
               </div>
-
-              <div className="mt-4 space-y-3">
+              <div className="relative z-10 mt-4 space-y-3">
                 {examples.map((item) => (
-                  <div
-                    key={item.title}
-                    className="flex items-center gap-4 rounded-2xl border border-slate-200 p-4"
-                  >
-                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-950 text-sm font-black text-white">
-                      {item.score}%
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="font-black">
-                        {item.title}
-                      </div>
-
-                      <div className="mt-1 truncate text-xs text-slate-500">
-                        {item.meta}
-                      </div>
-                    </div>
-
-                    <ArrowUpRight
-                      size={17}
-                      className="text-slate-400"
-                    />
+                  <div key={item.title} className="group flex items-center gap-4 rounded-2xl border border-white/[.065] bg-white/[.025] p-4 transition hover:-translate-y-0.5 hover:border-[#d5ff69]/20 hover:bg-white/[.04]">
+                    <div className="orbit-match-ring relative grid h-12 w-12 shrink-0 place-items-center rounded-full" style={{ "--match": item.score }}><span className="absolute inset-[5px] rounded-full bg-[#0d1917]" /><span className="relative z-10 text-[11px] font-black text-[#d5ff69]">{item.score}%</span></div>
+                    <div className="min-w-0 flex-1"><div className="font-display text-sm font-bold text-white">{item.title}</div><div className="mt-1 truncate text-[10px] text-[#71857f]">{item.meta}</div></div>
+                    <ArrowUpRight size={16} className="text-[#60736e] transition group-hover:text-[#d5ff69]" />
                   </div>
                 ))}
               </div>
-
-              <div className="mt-4 rounded-2xl bg-slate-950 p-5 text-white">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-blue-300">
-                  <Zap size={14} />
-                  Orbit discovered this
-                </div>
-
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  A new remote AI fellowship matches your
-                  Python + ML profile and closes in 21
-                  days.
-                </p>
+              <div className="relative z-10 mt-4 rounded-2xl border border-[#69f0c0]/10 bg-[#69f0c0]/[.035] p-4">
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.14em] text-[#81f5cc]"><Zap size={14} /> Orbit discovered this</div>
+                <p className="mt-2 text-xs leading-5 text-[#8fa19d]">A new remote AI fellowship matches your Python + ML profile and closes in 21 days.</p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="border-y border-slate-200 bg-white">
-          <div className="mx-auto grid max-w-7xl gap-px bg-slate-200 sm:grid-cols-3">
-            {[
-              [
-                Search,
-                "Discover",
-                "Search public sources, feeds and listings for opportunities you may never think to query.",
-              ],
-              [
-                ShieldCheck,
-                "Verify",
-                "Separate primary sources from stale aggregators and track when each record was last checked.",
-              ],
-              [
-                Target,
-                "Match",
-                "Rank by your skills, eligibility, education, location preference and deadline usefulness.",
-              ],
-            ].map(([Icon, title, text]) => (
-              <div
-                key={title}
-                className="bg-white p-8"
-              >
-                <Icon
-                  size={23}
-                  className="text-blue-600"
-                />
-
-                <h3 className="mt-5 text-xl font-black">
-                  {title}
-                </h3>
-
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  {text}
-                </p>
-              </div>
+        <section className="border-y border-white/[.06] bg-[#091310]/75">
+          <div className="mx-auto grid max-w-[1380px] divide-y divide-white/[.06] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            {[[Search,"Discover","Continuously scan public and official sources for opportunities you may never think to search."],[ShieldCheck,"Verify","Prioritize primary sources, check freshness and keep stale listings out of your radar."],[Target,"Match","Rank every opportunity against your profile, eligibility, location and deadline usefulness."]].map(([Icon,title,text]) => (
+              <div key={title} className="p-7 sm:p-8"><div className="grid h-10 w-10 place-items-center rounded-xl border border-[#d5ff69]/10 bg-[#d5ff69]/[.06] text-[#d5ff69]"><Icon size={18} /></div><h3 className="font-display mt-5 text-lg font-extrabold text-white">{title}</h3><p className="mt-2 text-xs leading-6 text-[#7f948e]">{text}</p></div>
             ))}
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8">
-          <div className="grid gap-8 rounded-[32px] bg-slate-950 p-8 text-white sm:p-12 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-300">
-                The idea behind Orbit
-              </p>
-
-              <h2 className="mt-4 max-w-3xl text-3xl font-black tracking-tight sm:text-4xl">
-                You can't search for an opportunity you
-                don't know exists.
-              </h2>
-
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400">
-                Stop repeating the same searches. Build
-                your profile once and let the radar
-                surface what is new, relevant and still
-                actionable.
-              </p>
-            </div>
-
-            <button
-              onClick={() => navigate("/register")}
-              className="rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950"
-            >
-              Start building
-              <ArrowRight
-                size={15}
-                className="ml-2 inline"
-              />
-            </button>
+        <section className="mx-auto max-w-[1380px] px-5 py-20 sm:px-8">
+          <div className="relative grid gap-8 overflow-hidden rounded-[30px] border border-white/[.07] bg-gradient-to-br from-[#13251f] to-[#0b1513] p-8 sm:p-11 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div className="orbit-dot-grid absolute inset-0 opacity-[.08]" />
+            <div className="relative z-10"><p className="text-[10px] font-bold uppercase tracking-[.2em] text-[#d5ff69]/70">The idea behind Orbit</p><h2 className="font-display mt-3 max-w-3xl text-3xl font-extrabold tracking-tight text-white sm:text-4xl">You can't search for an opportunity you don't know exists.</h2><p className="mt-4 max-w-2xl text-sm leading-7 text-[#81958f]">Build your profile once and let the radar surface what is new, relevant and still actionable.</p></div>
+            <button onClick={() => navigate("/register")} className="relative z-10 rounded-xl bg-[#eafdb7] px-6 py-3.5 text-sm font-black text-[#102016]">Start building <ArrowRight size={15} className="ml-2 inline" /></button>
           </div>
         </section>
       </main>
@@ -889,172 +726,47 @@ function LandingPage() {
 function AuthPage({ mode }) {
   const navigate = useNavigate();
   const { login, profile } = useOrbit();
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-
   const isRegister = mode === "register";
 
   const submit = (e) => {
     e.preventDefault();
-
-    if (
-      !email ||
-      !password ||
-      (isRegister && !name)
-    ) {
-      return setError(
-        "Complete the required fields to continue."
-      );
+    if (!email || !password || (isRegister && !name)) {
+      return setError("Complete the required fields to continue.");
     }
-
     login();
-
-    if (isRegister || !profile?.fullName) {
-      navigate("/onboarding", {
-        state: { name },
-      });
-    } else {
-      navigate("/dashboard");
-    }
+    if (isRegister || !profile?.fullName) navigate("/onboarding", { state: { name } });
+    else navigate("/dashboard");
   };
 
   return (
-    <div className="grid min-h-screen bg-[#f6f7f9] lg:grid-cols-[.9fr_1.1fr]">
+    <div className="orbit-public-shell grid min-h-screen bg-[#07100f] text-[#eef7f4] lg:grid-cols-[.92fr_1.08fr]">
       <div className="flex min-h-screen flex-col px-5 py-6 sm:px-10 lg:px-14">
-        <Link to="/">
-          <OrbitLogo />
-        </Link>
-
+        <Link to="/"><OrbitLogo inverse /></Link>
         <div className="my-auto w-full max-w-md self-center py-12">
-          <div className="text-xs font-bold uppercase tracking-[0.14em] text-blue-600">
-            {isRegister
-              ? "Create your radar"
-              : "Welcome back"}
-          </div>
-
-          <h1 className="mt-3 text-4xl font-black tracking-tight">
-            {isRegister
-              ? "Find the opportunities meant for you."
-              : "Your radar is still running."}
-          </h1>
-
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            {isRegister
-              ? "Start with an account, then tell Orbit what you study, build and care about."
-              : "Sign in to review your newest matches and deadlines."}
-          </p>
-
-          <form
-            onSubmit={submit}
-            className="mt-8 space-y-4"
-          >
-            {isRegister && (
-              <Field
-                label="Full name"
-                value={name}
-                onChange={setName}
-                placeholder="Your full name"
-              />
-            )}
-
-            <Field
-              label="Email"
-              type="email"
-              value={email}
-              onChange={setEmail}
-              placeholder="you@example.com"
-            />
-
-            <Field
-              label="Password"
-              type="password"
-              value={password}
-              onChange={setPassword}
-              placeholder="At least 8 characters"
-            />
-
-            {error && (
-              <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700">
-                <AlertCircle size={14} />
-                {error}
-              </div>
-            )}
-
-            <button className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white">
-              {isRegister
-                ? "Create account"
-                : "Sign in"}
-
-              <ArrowRight size={15} />
-            </button>
+          <div className="text-[10px] font-bold uppercase tracking-[.2em] text-[#d5ff69]/75">{isRegister ? "Create your radar" : "Welcome back"}</div>
+          <h1 className="font-display mt-3 text-4xl font-extrabold tracking-[-.03em] text-white">{isRegister ? "Find the opportunities meant for you." : "Your radar is still running."}</h1>
+          <p className="mt-3 text-sm leading-6 text-[#81958f]">{isRegister ? "Start with an account, then tell Orbit what you study, build and care about." : "Sign in to review your newest matches and deadlines."}</p>
+          <form onSubmit={submit} className="mt-8 space-y-4">
+            {isRegister && <Field label="Full name" value={name} onChange={setName} placeholder="Your full name" />}
+            <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" />
+            <Field label="Password" type="password" value={password} onChange={setPassword} placeholder="At least 8 characters" />
+            {error && <div className="flex items-center gap-2 rounded-xl border border-red-400/15 bg-red-400/[.06] px-3 py-2.5 text-xs font-semibold text-red-300"><AlertCircle size={14} />{error}</div>}
+            <button className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#eafdb7] px-5 py-3.5 text-sm font-black text-[#102016] transition hover:brightness-110">{isRegister ? "Create account" : "Sign in"}<ArrowRight size={15} /></button>
           </form>
-
-          <p className="mt-6 text-center text-xs text-slate-500">
-            {isRegister
-              ? "Already have an account?"
-              : "New to Orbit?"}{" "}
-            <Link
-              className="font-bold text-slate-950"
-              to={
-                isRegister
-                  ? "/login"
-                  : "/register"
-              }
-            >
-              {isRegister
-                ? "Sign in"
-                : "Create account"}
-            </Link>
-          </p>
-
-          <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs leading-5 text-blue-800">
-            <strong>Frontend preview:</strong>{" "}
-            authentication is local-only until the
-            FastAPI backend is connected.
-          </div>
+          <p className="mt-6 text-center text-xs text-[#71857f]">{isRegister ? "Already have an account?" : "New to Orbit?"}{" "}<Link className="font-bold text-[#d5ff69]" to={isRegister ? "/login" : "/register"}>{isRegister ? "Sign in" : "Create account"}</Link></p>
         </div>
       </div>
-
-      <div className="relative hidden overflow-hidden bg-slate-950 p-12 text-white lg:block">
-        <div className="absolute inset-0 opacity-40 [background-image:radial-gradient(circle_at_30%_20%,#2563eb_0,transparent_26%),radial-gradient(circle_at_80%_70%,#0ea5e9_0,transparent_20%)]" />
-
+      <div className="relative hidden overflow-hidden border-l border-white/[.06] bg-[#0a1513] p-12 text-white lg:block">
+        <div className="orbit-dot-grid absolute inset-0 opacity-[.12]" />
+        <div className="absolute -right-24 -top-24 h-[420px] w-[420px] rounded-full border border-[#69f0c0]/10" />
+        <div className="absolute -right-3 top-4 h-[260px] w-[260px] rounded-full border border-white/[.05]" />
         <div className="relative flex h-full flex-col justify-between">
-          <div className="max-w-lg">
-            <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-blue-200">
-              Opportunity intelligence, not another job
-              board
-            </div>
-
-            <h2 className="mt-8 text-5xl font-black leading-[1.02] tracking-tight">
-              From scattered links to one ranked radar.
-            </h2>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              [Radar, "Continuous discovery"],
-              [ShieldCheck, "Source verification"],
-              [Target, "Personal matching"],
-              [CalendarClock, "Deadline tracking"],
-            ].map(([Icon, label]) => (
-              <div
-                key={label}
-                className="rounded-2xl border border-white/10 bg-white/[0.05] p-4"
-              >
-                <Icon
-                  size={18}
-                  className="text-blue-300"
-                />
-
-                <div className="mt-3 text-sm font-bold">
-                  {label}
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="max-w-lg"><div className="inline-flex items-center gap-2 rounded-full border border-white/[.08] bg-white/[.035] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.16em] text-[#91a59f]"><span className="h-1.5 w-1.5 rounded-full bg-[#69f0c0]" /> Opportunity intelligence</div><h2 className="font-display mt-8 text-5xl font-extrabold leading-[1.02] tracking-[-.04em]">From scattered links to one <span className="orbit-gradient-text">ranked radar.</span></h2></div>
+          <div className="grid gap-3 sm:grid-cols-2">{[[Radar,"Continuous discovery"],[ShieldCheck,"Source verification"],[Target,"Personal matching"],[CalendarClock,"Deadline tracking"]].map(([Icon,label]) => <div key={label} className="rounded-2xl border border-white/[.07] bg-white/[.025] p-4"><Icon size={17} className="text-[#d5ff69]" /><div className="mt-3 text-sm font-bold">{label}</div></div>)}</div>
         </div>
       </div>
     </div>
@@ -1426,7 +1138,7 @@ function OnboardingPage() {
 
   return (
     <Protected>
-      <div className="min-h-screen bg-[#f6f7f9] px-5 py-6 sm:px-8">
+      <div className="orbit-public-shell orbit-onboarding min-h-screen bg-[#07100f] px-5 py-6 text-[#eef7f4] sm:px-8">
         <div className="mx-auto max-w-4xl">
           <div className="flex items-center justify-between">
             <OrbitLogo />
@@ -1870,74 +1582,121 @@ function DashboardPage() {
     (x) => x.isNew
   ).length;
 
-  const savedCount =
-    Object.keys(saved).length;
+  const savedCount = Object.keys(saved).length;
+  const recommended = opportunities.filter((x) => x.match >= 80).length;
+  const strongest = top[0]?.match || 0;
+  const profileStrength = Math.min(
+    100,
+    44 + (profile.skills?.length || 0) * 7 + (profile.interests?.length || 0) * 4
+  );
+  const firstName = profile.fullName
+    ? profile.fullName.split(" ")[0]
+    : "there";
 
   return (
     <ShellRoute>
-      <section className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-        <div>
-          <div className="text-xs font-bold uppercase tracking-[0.15em] text-blue-600">
-            Your Opportunity Radar
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,.65fr)]">
+        <div className="orbit-panel relative min-h-[246px] overflow-hidden rounded-[26px] border border-white/[.075] bg-gradient-to-br from-[#10211d] via-[#0d1917] to-[#0b1513] p-7 shadow-[inset_0_1px_rgba(255,255,255,.025),0_18px_45px_rgba(0,0,0,.18)] lg:p-8">
+          <div className="orbit-dot-grid absolute inset-0 opacity-[.18]" />
+          <div className="orbit-float absolute right-[19%] top-7 h-2 w-2 rounded-full bg-[#d5ff69] shadow-[0_0_24px_#d5ff69]" />
+          <div className="orbit-float absolute right-[11%] top-[30%] h-1.5 w-1.5 rounded-full bg-[#69f0c0] shadow-[0_0_20px_#69f0c0] [animation-delay:-2s]" />
+          <div className="absolute right-[-65px] top-[-85px] h-[310px] w-[310px] rounded-full border border-white/[.055]" />
+          <div className="absolute right-[-18px] top-[-35px] h-[220px] w-[220px] rounded-full border border-white/[.045]" />
+
+          <div className="relative z-10 max-w-[650px]">
+            <div className="mb-5 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.18em] text-[#9bb1aa]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#d5ff69]" />
+              Your opportunity intelligence
+            </div>
+
+            <h1 className="font-display max-w-[610px] text-[30px] font-extrabold leading-[1.08] tracking-[-.035em] text-white sm:text-[38px]">
+              Welcome back, {firstName}. Your radar is already finding
+              <span className="orbit-gradient-text"> what matters.</span>
+            </h1>
+
+            <p className="mt-4 max-w-[570px] text-[13px] leading-6 text-[#93a6a1] sm:text-sm">
+              Orbit has ranked {opportunities.length} opportunities against your current profile, eligibility signals and preferences.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Link
+                to="/discover"
+                className="flex items-center gap-2 rounded-xl bg-[#eafdb7] px-4 py-2.5 text-xs font-bold text-[#102016] transition hover:brightness-110"
+              >
+                <Sparkles size={16} /> Explore my matches
+              </Link>
+              <Link
+                to="/ingestion"
+                className="flex items-center gap-2 rounded-xl border border-white/[.08] bg-white/[.035] px-4 py-2.5 text-xs font-semibold text-[#c0cec9] transition hover:bg-white/[.06]"
+              >
+                <Play size={14} /> See radar activity
+              </Link>
+            </div>
           </div>
-
-          <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
-            Good afternoon
-            {profile.fullName
-              ? `, ${profile.fullName.split(
-                " "
-              )[0]
-              }`
-              : ""}
-            .
-          </h1>
-
-          <p className="mt-2 text-sm text-slate-500">
-            Orbit found{" "}
-            {opportunities.length}{" "}
-            opportunities worth ranking
-            against your current profile.
-          </p>
         </div>
 
-        <Link
-          to="/discover"
-          className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
-        >
-          Explore all matches
-          <ArrowRight size={15} />
-        </Link>
+        <div className="orbit-panel relative flex min-h-[246px] flex-col justify-between overflow-hidden rounded-[26px] border border-white/[.075] bg-[#0d1917] p-5 shadow-[inset_0_1px_rgba(255,255,255,.025),0_18px_45px_rgba(0,0,0,.18)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs text-[#839790]">Orbit Radar</div>
+              <div className="font-display mt-1 text-lg font-bold text-white">Live discovery</div>
+            </div>
+            <div className="rounded-lg border border-[#69f0c0]/10 bg-[#69f0c0]/10 px-2 py-1 text-[10px] font-bold text-[#81f5cc]">
+              ACTIVE
+            </div>
+          </div>
+
+          <div className="orbit-radar-grid relative mx-auto my-2 h-[132px] w-[132px] overflow-hidden rounded-full border border-white/[.06]">
+            <div className="orbit-radar-sweep absolute inset-0 rounded-full" />
+            <div className="absolute inset-0 grid place-items-center">
+              <div className="relative">
+                <span className="orbit-pulse-ring absolute inset-0 rounded-full bg-[#d5ff69]/25" />
+                <span className="relative block h-2.5 w-2.5 rounded-full bg-[#d5ff69] shadow-[0_0_15px_#d5ff69]" />
+              </div>
+            </div>
+            <span className="absolute left-[30px] top-[43px] h-1.5 w-1.5 rounded-full bg-[#69f0c0] shadow-[0_0_8px_#69f0c0]" />
+            <span className="absolute bottom-[31px] right-[24px] h-1.5 w-1.5 rounded-full bg-[#76baff] shadow-[0_0_8px_#76baff]" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div className="text-sm font-bold text-white">{opportunities.length}</div>
+              <div className="text-[9px] text-[#6e827d]">Ranked</div>
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">{recommended}</div>
+              <div className="text-[9px] text-[#6e827d]">Strong</div>
+            </div>
+            <div>
+              <div className="text-sm font-bold text-[#d5ff69]">+{fresh}</div>
+              <div className="text-[9px] text-[#6e827d]">New</div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          label="Recommended"
-          value={
-            opportunities.filter(
-              (x) => x.match >= 80
-            ).length
-          }
+          label="Strong matches"
+          value={recommended}
           hint="80%+ profile fit"
           icon={Target}
           tone="slate"
         />
-
         <MetricCard
           label="Closing soon"
           value={closing}
           hint="Within 30 days"
           icon={CalendarClock}
-          tone="white"
+          tone="amber"
         />
-
         <MetricCard
-          label="New today"
+          label="New opportunities"
           value={fresh}
           hint="Recently discovered"
           icon={Zap}
           tone="blue"
         />
-
         <MetricCard
           label="Saved"
           value={savedCount}
@@ -1947,26 +1706,36 @@ function DashboardPage() {
         />
       </section>
 
-      <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_330px]">
-        <div>
-          <div className="mb-4 flex items-center justify-between">
+      <section className="orbit-panel mt-6 rounded-[24px] border border-white/[.075] bg-[#0c1715] p-5">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-8 w-8 place-items-center rounded-xl border border-[#d5ff69]/10 bg-[#d5ff69]/10 text-[#d5ff69]">
+            <Sparkles size={16} />
+          </div>
+          <div>
+            <div className="font-display text-sm font-bold text-white">Ask Orbit</div>
+            <div className="text-[10px] text-[#6f847e]">Use natural language discovery from the Discover page.</div>
+          </div>
+        </div>
+        <Link
+          to="/discover"
+          className="mt-3 flex items-center gap-3 rounded-2xl border border-white/[.08] bg-[#081310] p-2 pl-4 transition hover:border-[#d5ff69]/20"
+        >
+          <span className="flex-1 py-2 text-[13px] text-[#586d67]">Find fully funded AI research programs I can apply to...</span>
+          <span className="flex h-10 items-center gap-2 rounded-xl bg-[#eafdb7] px-4 text-xs font-bold text-[#102016]">
+            Search intelligently <ArrowRight size={15} />
+          </span>
+        </Link>
+      </section>
+
+      <section className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0">
+          <div className="mb-4 flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-xl font-black">
-                Top matches
-              </h2>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Ranked from your profile and
-                opportunity metadata.
-              </p>
+              <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[.2em] text-[#d5ff69]/65">Personalized feed</div>
+              <h2 className="font-display text-[22px] font-extrabold tracking-tight text-white">Best opportunities for you</h2>
+              <p className="mt-1 text-[11px] text-[#71857f]">Ranked from your profile and opportunity metadata.</p>
             </div>
-
-            <Link
-              to="/discover"
-              className="text-xs font-bold text-blue-600"
-            >
-              View all
-            </Link>
+            <Link to="/discover" className="text-[11px] font-bold text-[#d5ff69]">View all</Link>
           </div>
 
           <div className="space-y-3">
@@ -1974,108 +1743,84 @@ function DashboardPage() {
               <OpportunityCard
                 key={opp.id}
                 opportunity={opp}
-                saved={Boolean(
-                  saved[opp.id]
-                )}
-                onToggleSave={
-                  toggleSave
-                }
+                saved={Boolean(saved[opp.id])}
+                onToggleSave={toggleSave}
               />
             ))}
           </div>
         </div>
 
         <aside className="space-y-4">
-          <div className="rounded-[24px] bg-slate-950 p-6 text-white shadow-sm">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-blue-300">
-              <WandSparkles size={15} />
-              Match intelligence
-            </div>
-
-            <div className="mt-5 text-4xl font-black">
-              96%
-            </div>
-
-            <p className="mt-2 text-sm font-bold">
-              Your strongest current fit
-            </p>
-
-            <p className="mt-3 text-xs leading-6 text-slate-400">
-              Open-source programs are
-              ranking highest because your
-              profile combines Python,
-              React and an explicit Open
-              Source interest.
-            </p>
-
-            <Link
-              to="/discover"
-              className="mt-5 flex items-center gap-2 text-xs font-bold text-white"
-            >
-              See why
-              <ArrowRight size={13} />
-            </Link>
-          </div>
-
-          <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+          <div className="orbit-panel rounded-[22px] border border-white/[.075] bg-[#0c1715] p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black">
-                Profile signal
-              </h3>
+              <h3 className="font-display text-sm font-bold text-white">Your profile signal</h3>
+              <Link to="/profile" className="text-[10px] font-bold text-[#d5ff69]">Edit</Link>
+            </div>
 
-              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
-                Strong
-              </span>
+            <div className="mt-5 flex items-center gap-4">
+              <div
+                className="orbit-match-ring relative grid h-[72px] w-[72px] shrink-0 place-items-center rounded-full"
+                style={{ "--match": profileStrength }}
+              >
+                <div className="absolute inset-[6px] rounded-full bg-[#0c1715]" />
+                <span className="font-display relative z-10 text-[17px] font-extrabold text-white">{profileStrength}</span>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-white">Strong profile</div>
+                <div className="mt-1 text-[10px] leading-4 text-[#748982]">Keep skills and preferences current to improve ranking quality.</div>
+              </div>
             </div>
 
             <div className="mt-5 space-y-4">
               <Signal
                 label="Skills"
-                value={Math.min(
-                  100,
-                  profile.skills.length *
-                  16 +
-                  20
-                )}
+                value={Math.min(100, (profile.skills?.length || 0) * 16 + 20)}
               />
-
-              <Signal
-                label="Preferences"
-                value={82}
-              />
-
-              <Signal
-                label="Eligibility data"
-                value={76}
-              />
+              <Signal label="Preferences" value={82} />
+              <Signal label="Eligibility data" value={76} />
             </div>
-
-            <Link
-              to="/profile"
-              className="mt-5 inline-flex text-xs font-bold text-blue-600"
-            >
-              Improve profile →
-            </Link>
           </div>
 
-          <div className="rounded-[24px] border border-blue-100 bg-blue-50 p-6">
-            <div className="flex items-center gap-2 text-xs font-black text-blue-800">
-              <Radar size={15} />
-              Radar health
+          <div className="orbit-panel overflow-hidden rounded-[22px] border border-white/[.075] bg-[#0c1715]">
+            <div className="flex items-center justify-between p-5 pb-4">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[.18em] text-[#69f0c0]/70">Radar activity</div>
+                <h3 className="font-display mt-1 text-sm font-bold text-white">Discovery pulse</h3>
+              </div>
+              <div className="relative h-2.5 w-2.5">
+                <span className="orbit-pulse-ring absolute inset-0 rounded-full bg-[#69f0c0]/30" />
+                <span className="relative block h-2.5 w-2.5 rounded-full bg-[#69f0c0]" />
+              </div>
             </div>
+            <div className="orbit-dot-grid relative mx-4 h-[96px] overflow-hidden rounded-xl border border-white/[.05] bg-[#081310]">
+              <div className="orbit-scan-line absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#69f0c0]/70 to-transparent shadow-[0_0_10px_#69f0c0]" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="font-display text-2xl font-extrabold text-white">{opportunities.length}</div>
+                <span className="ml-2 text-[10px] text-[#6f847e]">opportunities indexed</span>
+              </div>
+            </div>
+            <div className="space-y-4 p-5">
+              <div className="relative pl-5">
+                <span className="absolute left-0 top-1 h-2 w-2 rounded-full bg-[#d5ff69]" />
+                <div className="text-[11px] font-medium text-white">{fresh} new opportunities found</div>
+                <div className="mt-1 text-[9px] text-[#6d827b]">Latest ranked dataset</div>
+              </div>
+              <div className="relative pl-5">
+                <span className="absolute bottom-[-16px] left-[3px] top-0 w-px bg-white/[.06]" />
+                <span className="absolute left-0 top-1 h-2 w-2 rounded-full bg-[#76baff]" />
+                <div className="text-[11px] font-medium text-white">{closing} deadlines need attention</div>
+                <div className="mt-1 text-[9px] text-[#6d827b]">Within the next 30 days</div>
+              </div>
+              <Link to="/ingestion" className="inline-flex text-[10px] font-bold text-[#d5ff69]">Open radar status →</Link>
+            </div>
+          </div>
 
-            <p className="mt-3 text-sm leading-6 text-blue-950">
-              Last discovery run
-              succeeded. New data is ready
-              for ranking.
-            </p>
-
-            <Link
-              to="/ingestion"
-              className="mt-4 inline-flex text-xs font-black text-blue-700"
-            >
-              Open Radar Status →
-            </Link>
+          <div className="orbit-panel relative overflow-hidden rounded-[22px] border border-white/[.075] bg-gradient-to-br from-[#13251f] to-[#0c1715] p-5">
+            <div className="absolute -right-8 -top-9 h-28 w-28 rounded-full border border-[#d5ff69]/10" />
+            <div className="text-[10px] font-bold uppercase tracking-[.2em] text-[#d5ff69]/65">Orbit insight</div>
+            <div className="font-display mt-2 text-[15px] font-bold leading-5 text-white">Your strongest current fit is {strongest}%.</div>
+            <p className="mt-2 text-[10px] leading-4 text-[#81958f]">Your skills, interests and preferences are shaping the ranking without changing the underlying opportunity data.</p>
+            <Link to="/discover" className="mt-4 flex items-center gap-1 text-[10px] font-bold text-[#d5ff69]">See match intelligence <ArrowRight size={13} /></Link>
           </div>
         </aside>
       </section>
@@ -2086,20 +1831,14 @@ function DashboardPage() {
 function Signal({ label, value }) {
   return (
     <div>
-      <div className="flex justify-between text-xs font-bold">
-        <span>{label}</span>
-
-        <span className="text-slate-400">
-          {value}%
-        </span>
+      <div className="flex justify-between text-[10px] font-semibold">
+        <span className="text-[#91a49f]">{label}</span>
+        <span className="text-[#71857f]">{value}%</span>
       </div>
-
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[.06]">
         <div
-          className="h-full rounded-full bg-slate-950"
-          style={{
-            width: `${value}%`,
-          }}
+          className="h-full rounded-full bg-gradient-to-r from-[#69f0c0] to-[#d5ff69]"
+          style={{ width: `${value}%` }}
         />
       </div>
     </div>
