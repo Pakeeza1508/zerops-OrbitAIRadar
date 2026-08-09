@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status, File
+from app.services.resume import extract_resume_text, parse_resume_profile
 from pymongo.errors import DuplicateKeyError
 
 from app.auth.debs import client_key, get_current_user, rate_limit
@@ -132,3 +133,48 @@ async def update_profile(payload: ProfileRequest, user: User = Depends(get_curre
     await db.users.update_one({"_id": ObjectId(user.id)}, {"$set": user_update})
     doc = await db.profiles.find_one({"userId": user.id})
     return serialize(doc)
+
+@profile_router.post("/parse-resume")
+async def parse_resume(
+    file: UploadFile = File(...),
+):
+    filename = (file.filename or "").strip()
+
+    if not filename.lower().endswith((".pdf", ".docx")):
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF and DOCX CV files are supported",
+        )
+
+    max_size = 6 * 1024 * 1024  # 6 MB
+
+    try:
+        data = await file.read(max_size + 1)
+    finally:
+        await file.close()
+
+    if not data:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded CV is empty",
+        )
+
+    if len(data) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="CV must be smaller than 6 MB",
+        )
+
+    try:
+        text = extract_resume_text(filename, data)
+        result = await parse_resume_profile(text)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
+
+    return {
+        "filename": filename,
+        **result,
+    }
