@@ -445,8 +445,16 @@ function OrbitProvider({ children }) {
         if (active) setAuthLoading(false);
       }
     };
+    const expire = () => {
+      sessionStorage.removeItem("orbit_access_token");
+      if (active) { setAuth(false); setProfileState(defaultProfile); }
+    };
+    window.addEventListener("orbit:session-expired", expire);
     restore();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.removeEventListener("orbit:session-expired", expire);
+    };
   }, []);
 
   const login = async ({ email, password, fullName, isRegister }) => {
