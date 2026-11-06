@@ -101,11 +101,11 @@ async function browserRegister(context, fullName, email) {
     // before performing a full page refresh.
     await pageA.getByRole("link",{name:"Profile",exact:true}).click();
     await pageA.waitForURL(/\/profile$/, {timeout:20000});
-    await pageA.getByLabel("Education",{exact:true}).waitFor({timeout:20000});
+    await pageA.getByLabel("Education").waitFor({timeout:20000});
     await pageA.reload({waitUntil:"load"});
-    await pageA.getByLabel("Education",{exact:true}).waitFor({timeout:20000});
+    await pageA.getByLabel("Education").waitFor({timeout:20000});
     assert.match(pageA.url(),/\/profile$/);
-    assert.equal(await pageA.getByLabel("Education",{exact:true}).inputValue(),education);
+    assert.equal(await pageA.getByLabel("Education").inputValue(),education);
     snapshot=stored.body;
   });
   await check(5, "fieldOfStudy exact save and reload", async()=>{
