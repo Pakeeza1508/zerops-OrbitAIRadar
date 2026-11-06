@@ -13,6 +13,10 @@ export async function apiRequest(path, { method = "GET", body, auth = true } = {
   } catch { throw new Error("Orbit's server is unreachable. Please try again."); }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (auth && response.status === 401) {
+      sessionStorage.removeItem("orbit_access_token");
+      window.dispatchEvent(new Event("orbit:session-expired"));
+    }
     throw new Error(typeof data.detail === "string" ? data.detail : `Request failed (${response.status}).`);
   }
   return data;
@@ -40,8 +44,7 @@ export function fromApiProfile(data = {}) {
     graduationYear: data.graduationYear == null ? "" : String(data.graduationYear),
     skills: data.skills || [], interests: data.interests || [],
     workMode,
-    preferredRegions: data.preferredCountries?.length ? data.preferredCountries :
-      locations.includes("global") ? ["Global"] : [],
+    preferredRegions: [...(locations.includes("global") ? ["Global"] : []), ...(data.preferredCountries || [])],
     fundingPreference: funding[data.fundingPreference] || "Any funding",
   };
 }
