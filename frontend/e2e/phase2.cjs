@@ -114,6 +114,13 @@ async function browserRegister(context, fullName, email) {
     assert.equal(stored.status,200);
     assert.equal(stored.body.fieldOfStudy,field);
     await pageA.reload();
+    // Session/profile restore is asynchronous after a hard reload: wait for the
+    // persisted field to hydrate, then assert its exact value.
+    await pageA.waitForFunction(
+      expected => [...document.querySelectorAll("input")].some(input => input.value === expected),
+      field,
+      { timeout: 20000 }
+    );
     assert.equal(await pageA.getByLabel("Field of study").inputValue(),field);
   });
   await check(6, "Legacy orbit_auth localStorage alone cannot authenticate", async()=>{
