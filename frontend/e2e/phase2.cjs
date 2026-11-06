@@ -66,10 +66,12 @@ async function browserRegister(context, fullName, email) {
   });
   await check(3, "Valid session restored after refresh", async()=>{
     assert.ok(pageA,"registration prerequisite failed");
-    await pageA.goto(WEB+"/dashboard");
-    await pageA.reload();
-    await pageA.waitForFunction(()=>!document.body.textContent.includes("Checking your session"),{timeout:20000});
-    assert.match(pageA.url(),/\/dashboard$/);
+    // Registration lands on onboarding. Refresh that protected route rather
+    // than racing a second navigation while React finishes the first one.
+    await pageA.getByText("Step 1 of 4").waitFor({timeout:20000});
+    await pageA.reload({waitUntil:"load"});
+    await pageA.getByText("Step 1 of 4").waitFor({timeout:20000});
+    assert.match(pageA.url(),/\/onboarding$/);
     assert.equal(await pageA.evaluate(()=>sessionStorage.getItem("orbit_access_token")),tokenA);
     const r=await request("/api/auth/me",{token:tokenA});
     assert.equal(r.status,200);assert.equal(r.body.id,userA);
@@ -77,7 +79,8 @@ async function browserRegister(context, fullName, email) {
 
   await check(4, "educationLevel exact save and reload", async()=>{
     assert.ok(pageA,"registration prerequisite failed");
-    await pageA.goto(WEB+"/onboarding");
+    // Case 3 has already restored the session on the onboarding route.
+    await pageA.getByText("Step 1 of 4").waitFor({timeout:20000});
     await pageA.getByLabel("Full name").fill("Phase Two Alice");
     await pageA.getByLabel("Country").fill("Pakistan");
     await pageA.getByLabel("Education level").selectOption({label:education});
