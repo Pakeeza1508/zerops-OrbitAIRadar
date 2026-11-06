@@ -3395,6 +3395,13 @@ function ProfilePage() {
 
   const [form, setForm] =
     useState(profile);
+
+  // Restore the form when the authenticated profile arrives after a hard reload.
+  // This effect runs on profile updates, not on local form edits.
+  useEffect(() => {
+    setForm(profile);
+  }, [profile]);
+
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
