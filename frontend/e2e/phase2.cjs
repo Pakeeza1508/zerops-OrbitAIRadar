@@ -97,8 +97,13 @@ async function browserRegister(context, fullName, email) {
     const stored=await request("/api/profile",{token:tokenA});
     assert.equal(stored.status,200);
     assert.equal(stored.body.educationLevel,education);
-    await pageA.goto(WEB+"/profile");
-    await pageA.reload();
+    // Use React Router navigation; wait for the actual profile form
+    // before performing a full page refresh.
+    await pageA.getByRole("link",{name:"Profile",exact:true}).click();
+    await pageA.waitForURL(/\/profile$/, {timeout:20000});
+    await pageA.getByLabel("Education",{exact:true}).waitFor({timeout:20000});
+    await pageA.reload({waitUntil:"load"});
+    await pageA.getByLabel("Education",{exact:true}).waitFor({timeout:20000});
     assert.match(pageA.url(),/\/profile$/);
     assert.equal(await pageA.getByLabel("Education",{exact:true}).inputValue(),education);
     snapshot=stored.body;
