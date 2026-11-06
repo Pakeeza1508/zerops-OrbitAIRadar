@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   BrowserRouter,
   Link,
@@ -48,6 +48,7 @@ import AppShell from "./components/AppShell";
 import MetricCard from "./components/MetricCard";
 import OpportunityCard from "./components/OpportunityCard";
 import OrbitLogo from "./components/OrbitLogo";
+import { apiRequest, fromApiProfile, toApiProfile, clearLegacyAuth } from "./api/client";
 
 const OrbitContext = createContext(null);
 
@@ -403,41 +404,8 @@ const initialRuns = [
 ];
 
 const defaultProfile = {
-  fullName: "",
-  country: "Pakistan",
-  education: "Undergraduate",
-  field: "Computer Science",
-  graduationYear: "2027",
-  skills: ["Python", "React", "AI"],
-  interests: ["Fellowship", "Open Source", "Hackathon"],
-  workMode: "Remote",
-  preferredRegions: ["Global", "Europe"],
-  fundingPreference: "Fully funded or paid",
-};
-
-const demoProfile = {
-  ...defaultProfile,
-  fullName: "Ayesha Khan",
-  country: "Pakistan",
-  education: "Undergraduate",
-  field: "Computer Science",
-  graduationYear: "2027",
-  skills: [
-    "Python",
-    "React",
-    "AI",
-    "Machine Learning",
-    "Open Source",
-  ],
-  interests: [
-    "Fellowship",
-    "Open Source",
-    "Hackathon",
-    "Research",
-  ],
-  workMode: "Remote",
-  preferredRegions: ["Global", "Europe", "Asia"],
-  fundingPreference: "Fully funded or paid",
+  fullName: "", country: "", education: "", field: "", graduationYear: "",
+  skills: [], interests: [], workMode: "Any", preferredRegions: [], fundingPreference: "Any funding",
 };
 
 function readJson(key, fallback) {
@@ -450,77 +418,77 @@ function readJson(key, fallback) {
 }
 
 function OrbitProvider({ children }) {
-  const [auth, setAuth] = useState(
-    () => localStorage.getItem("orbit_auth") === "1"
-  );
+  const [auth, setAuth] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [profile, setProfileState] = useState(defaultProfile);
+  // Phase 3 replaces local opportunity and saved workflows.
+  const [opportunities, setOpportunities] = useState(opportunitySeed);
+  const [saved, setSaved] = useState({});
+  const [runs, setRuns] = useState([]);
 
-  const [demoMode, setDemoMode] = useState(
-    () => localStorage.getItem("orbit_demo") === "1"
-  );
+  useEffect(() => {
+    let active = true;
+    clearLegacyAuth();
+    const restore = async () => {
+      if (!sessionStorage.getItem("orbit_access_token")) {
+        if (active) setAuthLoading(false);
+        return;
+      }
+      try {
+        await apiRequest("/api/auth/me");
+        const record = await apiRequest("/api/profile");
+        if (active) { setProfileState(fromApiProfile(record)); setAuth(true); }
+      } catch {
+        sessionStorage.removeItem("orbit_access_token");
+        if (active) setAuth(false);
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    };
+    const expire = () => {
+      sessionStorage.removeItem("orbit_access_token");
+      if (active) { setAuth(false); setProfileState(defaultProfile); }
+    };
+    window.addEventListener("orbit:session-expired", expire);
+    restore();
+    return () => {
+      active = false;
+      window.removeEventListener("orbit:session-expired", expire);
+    };
+  }, []);
 
-  const [profile, setProfileState] = useState(() =>
-    localStorage.getItem("orbit_demo") === "1"
-      ? readJson("orbit_demo_profile", demoProfile)
-      : readJson("orbit_profile", defaultProfile)
-  );
-
-  const [opportunities, setOpportunities] =
-    useState(opportunitySeed);
-
-  const [saved, setSaved] = useState(() =>
-    readJson("orbit_saved", {})
-  );
-
-  const [runs, setRuns] = useState(() =>
-    readJson("orbit_runs", initialRuns)
-  );
-
-  const login = () => {
-    localStorage.removeItem("orbit_demo");
-    localStorage.removeItem("orbit_demo_profile");
-    localStorage.setItem("orbit_auth", "1");
-
-    setDemoMode(false);
-    setProfileState(
-      readJson("orbit_profile", defaultProfile)
-    );
+  const login = async ({ email, password, fullName, isRegister }) => {
+    const response = await apiRequest(isRegister ? "/api/auth/register" : "/api/auth/login", {
+      method: "POST", auth: false,
+      body: isRegister ? { email, password, fullName } : { email, password },
+    });
+    if (!response.accessToken || !response.user) throw new Error("Invalid authentication response.");
+    sessionStorage.setItem("orbit_access_token", response.accessToken);
+    try {
+      const record = await apiRequest("/api/profile");
+      setProfileState(fromApiProfile(record));
+    } catch (error) {
+      sessionStorage.removeItem("orbit_access_token");
+      throw error;
+    }
     setAuth(true);
-  };
-
-  const startDemo = () => {
-    localStorage.setItem("orbit_demo", "1");
-    localStorage.setItem(
-      "orbit_demo_profile",
-      JSON.stringify(demoProfile)
-    );
-    localStorage.setItem("orbit_auth", "1");
-
-    setDemoMode(true);
-    setProfileState(demoProfile);
-    setAuth(true);
+    return response.user;
   };
 
   const logout = () => {
-    localStorage.removeItem("orbit_auth");
-    localStorage.removeItem("orbit_demo");
-    localStorage.removeItem("orbit_demo_profile");
-
-    setDemoMode(false);
-    setProfileState(
-      readJson("orbit_profile", defaultProfile)
-    );
+    sessionStorage.removeItem("orbit_access_token");
+    clearLegacyAuth();
+    setProfileState(defaultProfile);
+    setSaved({});
+    setRuns([]);
     setAuth(false);
   };
 
-  const saveProfile = (next) => {
-    setProfileState(next);
-
-    localStorage.setItem(
-      demoMode
-        ? "orbit_demo_profile"
-        : "orbit_profile",
-      JSON.stringify(next)
-    );
+  const saveProfile = async (next) => {
+    const record = await apiRequest("/api/profile", { method: "PUT", body: toApiProfile(next) });
+    const updated = fromApiProfile(record);
+    setProfileState(updated);
+    return updated;
   };
 
   const toggleSave = (opp) => {
@@ -584,9 +552,8 @@ function OrbitProvider({ children }) {
     <OrbitContext.Provider
       value={{
         auth,
-        demoMode,
+        authLoading,
         login,
-        startDemo,
         logout,
         profile,
         saveProfile,
@@ -605,13 +572,9 @@ function OrbitProvider({ children }) {
 }
 
 function Protected({ children }) {
-  const { auth } = useOrbit();
-
-  return auth ? (
-    children
-  ) : (
-    <Navigate to="/login" replace />
-  );
+  const { auth, authLoading } = useOrbit();
+  if (authLoading) return <div className="grid min-h-screen place-items-center bg-[#07100f] text-white">Checking your session…</div>;
+  return auth ? children : <Navigate to="/login" replace />;
 }
 
 function ShellRoute({ children }) {
@@ -631,13 +594,6 @@ function ShellRoute({ children }) {
 
 function LandingPage() {
   const navigate = useNavigate();
-  const { startDemo } = useOrbit();
-
-  const openDemo = () => {
-    startDemo();
-    navigate("/dashboard");
-  };
-
   const examples = [
     { score: 96, title: "Open-source mentorship", meta: "Global · Paid · 235 days" },
     { score: 92, title: "AI research fellowship", meta: "Remote · Fully funded · 21 days" },
@@ -669,7 +625,7 @@ function LandingPage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button onClick={() => navigate("/register")} className="flex items-center justify-center gap-2 rounded-xl bg-[#eafdb7] px-5 py-3.5 text-sm font-black text-[#102016] transition hover:-translate-y-0.5 hover:brightness-110">Build my opportunity radar <ArrowRight size={16} /></button>
-              <button onClick={openDemo} className="flex items-center justify-center gap-2 rounded-xl border border-white/[.09] bg-white/[.035] px-5 py-3.5 text-sm font-bold text-[#c4d2ce] transition hover:-translate-y-0.5 hover:bg-white/[.06]">Explore demo <Play size={15} /></button>
+              
             </div>
             <div className="mt-9 flex flex-wrap gap-x-7 gap-y-3 text-[11px] font-semibold text-[#71857f]">
               <span className="flex items-center gap-2"><CheckCircle2 size={14} className="text-[#69f0c0]" /> Official-source verification</span>
@@ -725,21 +681,26 @@ function LandingPage() {
 
 function AuthPage({ mode }) {
   const navigate = useNavigate();
-  const { login, profile } = useOrbit();
+  const { login } = useOrbit();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const isRegister = mode === "register";
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (!email || !password || (isRegister && !name)) {
-      return setError("Complete the required fields to continue.");
-    }
-    login();
-    if (isRegister || !profile?.fullName) navigate("/onboarding", { state: { name } });
-    else navigate("/dashboard");
+    if (submitting) return;
+    if (!email || !password || (isRegister && !name)) return setError("Complete the required fields to continue.");
+    if (isRegister && password.length < 8) return setError("Password must contain at least 8 characters.");
+    setError("");
+    setSubmitting(true);
+    try {
+      const account = await login({ email, password, fullName: name, isRegister });
+      navigate(isRegister || !account.onboardingComplete ? "/onboarding" : "/dashboard", { replace: true, state: { name } });
+    } catch (err) { setError(err.message || "Unable to sign in."); }
+    finally { setSubmitting(false); }
   };
 
   return (
@@ -755,7 +716,7 @@ function AuthPage({ mode }) {
             <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" />
             <Field label="Password" type="password" value={password} onChange={setPassword} placeholder="At least 8 characters" />
             {error && <div className="flex items-center gap-2 rounded-xl border border-red-400/15 bg-red-400/[.06] px-3 py-2.5 text-xs font-semibold text-red-300"><AlertCircle size={14} />{error}</div>}
-            <button className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#eafdb7] px-5 py-3.5 text-sm font-black text-[#102016] transition hover:brightness-110">{isRegister ? "Create account" : "Sign in"}<ArrowRight size={15} /></button>
+            <button disabled={submitting} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#eafdb7] px-5 py-3.5 text-sm font-black text-[#102016] transition hover:brightness-110 disabled:opacity-60">{submitting ? "Please wait…" : isRegister ? "Create account" : "Sign in"}<ArrowRight size={15} /></button>
           </form>
           <p className="mt-6 text-center text-xs text-[#71857f]">{isRegister ? "Already have an account?" : "New to Orbit?"}{" "}<Link className="font-bold text-[#d5ff69]" to={isRegister ? "/login" : "/register"}>{isRegister ? "Sign in" : "Create account"}</Link></p>
         </div>
@@ -1034,6 +995,8 @@ function OnboardingPage() {
   const location = useLocation();
 
   const [step, setStep] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const [form, setForm] = useState({
     ...defaultProfile,
@@ -1131,9 +1094,12 @@ function OnboardingPage() {
       };
     });
 
-  const complete = () => {
-    saveProfile(form);
-    navigate("/dashboard");
+  const complete = async () => {
+    if (saving) return;
+    setSaving(true); setSaveError("");
+    try { await saveProfile(form); navigate("/dashboard", { replace: true }); }
+    catch (err) { setSaveError(err.message || "Could not save your profile."); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -1430,6 +1396,7 @@ function OnboardingPage() {
               </>
             )}
 
+            {saveError && <p role="alert" className="mt-4 text-sm text-red-600">{saveError}</p>}
             <div className="mt-10 flex items-center justify-between border-t border-slate-100 pt-6">
               <button
                 disabled={step === 1}
@@ -1459,6 +1426,7 @@ function OnboardingPage() {
               ) : (
                 <button
                   onClick={complete}
+                  disabled={saving}
                   className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-blue-700"
                 >
                   Build my radar
@@ -3428,6 +3396,15 @@ function ProfilePage() {
   const [form, setForm] =
     useState(profile);
 
+  // Restore the form when the authenticated profile arrives after a hard reload.
+  // This effect runs on profile updates, not on local form edits.
+  useEffect(() => {
+    setForm(profile);
+  }, [profile]);
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
   const [
     savedMsg,
     setSavedMsg,
@@ -3516,15 +3493,15 @@ function ProfilePage() {
       };
     });
 
-  const save = () => {
-    saveProfile(form);
-
-    setSavedMsg(true);
-
-    setTimeout(
-      () => setSavedMsg(false),
-      1800
-    );
+  const save = async () => {
+    if (saving) return;
+    setSaving(true); setSaveError(""); setSavedMsg(false);
+    try {
+      const updated = await saveProfile(form);
+      setForm(updated);
+      setSavedMsg(true);
+    } catch (err) { setSaveError(err.message || "Could not save your profile."); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -3760,13 +3737,12 @@ function ProfilePage() {
 
           <div className="mt-7 flex items-center justify-between border-t border-slate-100 pt-6">
             <div className="text-xs font-semibold text-emerald-700">
-              {savedMsg
-                ? "Profile saved ✓"
-                : ""}
+              {saveError || (savedMsg ? "Profile saved ✓" : "")}
             </div>
 
             <button
               onClick={save}
+              disabled={saving}
               className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
             >
               Save profile
