@@ -1207,22 +1207,19 @@ function DashboardPage() {
     opportunities,
     saved,
     toggleSave,
+    opportunitiesLoading,
+    opportunitiesError,
+    stats,
   } = useOrbit();
 
   const top = [...opportunities]
     .sort((a, b) => b.match - a.match)
     .slice(0, 4);
 
-  const closing = opportunities.filter(
-    (x) => x.daysRemaining <= 30
-  ).length;
-
-  const fresh = opportunities.filter(
-    (x) => x.isNew
-  ).length;
-
-  const savedCount = Object.keys(saved).length;
-  const recommended = opportunities.filter((x) => x.match >= 80).length;
+  const closing = Number(stats.closingSoon) || 0;
+  const fresh = Number(stats.newToday) || 0;
+  const savedCount = Number(stats.saved) || 0;
+  const recommended = Number(stats.recommended) || 0;
   const strongest = top[0]?.match || 0;
   const profileStrength = Math.min(
     100,
@@ -1254,7 +1251,7 @@ function DashboardPage() {
             </h1>
 
             <p className="mt-4 max-w-[570px] text-[13px] leading-6 text-[#93a6a1] sm:text-sm">
-              Orbit has ranked {opportunities.length} opportunities against your current profile, eligibility signals and preferences.
+              Orbit currently has {Number(stats.totalActive) || 0} active opportunities indexed for matching.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2">
@@ -1278,10 +1275,10 @@ function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs text-[#839790]">Orbit Radar</div>
-              <div className="font-display mt-1 text-lg font-bold text-white">Live discovery</div>
+              <div className="font-display mt-1 text-lg font-bold text-white">Opportunity index</div>
             </div>
             <div className="rounded-lg border border-[#69f0c0]/10 bg-[#69f0c0]/10 px-2 py-1 text-[10px] font-bold text-[#81f5cc]">
-              ACTIVE
+              DATA
             </div>
           </div>
 
@@ -1299,7 +1296,7 @@ function DashboardPage() {
 
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
-              <div className="text-sm font-bold text-white">{opportunities.length}</div>
+              <div className="text-sm font-bold text-white">{Number(stats.totalActive) || 0}</div>
               <div className="text-[9px] text-[#6e827d]">Ranked</div>
             </div>
             <div>
@@ -1318,14 +1315,14 @@ function DashboardPage() {
         <MetricCard
           label="Strong matches"
           value={recommended}
-          hint="80%+ profile fit"
+          hint="70%+ profile fit"
           icon={Target}
           tone="slate"
         />
         <MetricCard
           label="Closing soon"
           value={closing}
-          hint="Within 30 days"
+          hint="Within 7 days"
           icon={CalendarClock}
           tone="amber"
         />
@@ -1378,6 +1375,9 @@ function DashboardPage() {
           </div>
 
           <div className="space-y-3">
+            {opportunitiesLoading && <p className="text-sm text-[#8fa19e]">Loading opportunities…</p>}
+            {opportunitiesError && <p role="alert" className="text-sm text-red-300">{opportunitiesError}</p>}
+            {!opportunitiesLoading && !opportunitiesError && top.length === 0 && <p className="text-sm text-[#8fa19e]">No active opportunities are available yet.</p>}
             {top.map((opp) => (
               <OpportunityCard
                 key={opp.id}
@@ -1441,7 +1441,7 @@ function DashboardPage() {
             <div className="space-y-4 p-5">
               <div className="relative pl-5">
                 <span className="absolute left-0 top-1 h-2 w-2 rounded-full bg-[#d5ff69]" />
-                <div className="text-[11px] font-medium text-white">{fresh} new opportunities found</div>
+                <div className="text-[11px] font-medium text-white">{fresh} new opportunities indexed today</div>
                 <div className="mt-1 text-[9px] text-[#6d827b]">Latest ranked dataset</div>
               </div>
               <div className="relative pl-5">
