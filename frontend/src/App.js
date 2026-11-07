@@ -49,381 +49,28 @@ import MetricCard from "./components/MetricCard";
 import OpportunityCard from "./components/OpportunityCard";
 import OrbitLogo from "./components/OrbitLogo";
 import { apiRequest, fromApiProfile, toApiProfile, clearLegacyAuth } from "./api/client";
+import { getOpportunities, getOpportunity, getSaved, saveOpportunity, unsaveOpportunity, updateSavedStatus, askOrbitApi } from "./api/opportunities";
 
 const OrbitContext = createContext(null);
 
 const useOrbit = () => useContext(OrbitContext);
-
-const opportunitySeed = [
-  {
-    id: "gsoc-2027",
-    title: "Google Summer of Code 2027",
-    organization: "Google Open Source",
-    category: "Open Source",
-    match: 96,
-    deadline: "2027-03-31",
-    daysRemaining: 235,
-    location: "Global",
-    remote: true,
-    workMode: "Remote",
-    funding: "Paid stipend",
-    fundingType: "Paid",
-    verified: true,
-    isNew: false,
-    lastChecked: "9 min ago",
-    sourceUrl: "https://summerofcode.withgoogle.com/",
-    applicationUrl: "https://summerofcode.withgoogle.com/",
-    shortDescription:
-      "A global open-source program connecting contributors with established organizations for a mentored software project.",
-    description:
-      "Google Summer of Code is a global program focused on bringing new contributors into open-source software development. Contributors work with participating organizations under experienced mentors.",
-    eligibility: [
-      "Open to eligible contributors worldwide",
-      "Must satisfy the program's contributor eligibility rules",
-      "Availability for the full coding period",
-    ],
-    requirements: [
-      "Interest in open source",
-      "Ability to work with a mentor and community",
-      "Project proposal for a participating organization",
-    ],
-    benefits: [
-      "Paid stipend",
-      "Real open-source contribution experience",
-      "Mentorship from established communities",
-    ],
-    matchedSkills: ["Python", "Open Source", "Git"],
-    gaps: ["Add 1–2 public open-source contributions before applying"],
-  },
-  {
-    id: "mlh-fellowship",
-    title: "MLH Fellowship — Software Engineering",
-    organization: "Major League Hacking",
-    category: "Fellowship",
-    match: 94,
-    deadline: "2026-09-01",
-    daysRemaining: 24,
-    location: "Global",
-    remote: true,
-    workMode: "Remote",
-    funding: "Stipend available",
-    fundingType: "Paid",
-    verified: true,
-    isNew: true,
-    lastChecked: "12 min ago",
-    sourceUrl: "https://fellowship.mlh.io/",
-    applicationUrl: "https://fellowship.mlh.io/",
-    shortDescription:
-      "A remote, mentor-led program where developers collaborate on real-world projects and strengthen production engineering skills.",
-    description:
-      "The MLH Fellowship is a remote program designed to give developers practical experience through structured, mentor-supported project work.",
-    eligibility: [
-      "Developer or technical student profile",
-      "Can participate remotely",
-      "Availability during the program",
-    ],
-    requirements: [
-      "Programming foundations",
-      "Collaborative communication",
-      "Portfolio or examples of technical work",
-    ],
-    benefits: ["Mentorship", "Peer community", "Project experience"],
-    matchedSkills: ["React", "Python", "Open Source"],
-    gaps: ["Portfolio links would strengthen your application"],
-  },
-  {
-    id: "global-ai-research",
-    title: "Global AI Research Fellowship 2026",
-    organization: "Future Systems Lab",
-    category: "Research",
-    match: 92,
-    deadline: "2026-08-29",
-    daysRemaining: 21,
-    location: "Remote / Global",
-    remote: true,
-    workMode: "Remote",
-    funding: "Fully funded",
-    fundingType: "Fully funded",
-    verified: true,
-    isNew: true,
-    lastChecked: "8 min ago",
-    sourceUrl: "https://example.org/future-systems-lab",
-    applicationUrl: "https://example.org/apply/future-systems-lab",
-    shortDescription:
-      "A remote research fellowship for undergraduate and early-career builders exploring practical AI systems and responsible deployment.",
-    description:
-      "A structured research fellowship focused on applied artificial intelligence, experimentation, technical communication, and mentor-guided project work.",
-    eligibility: [
-      "Undergraduate or early-career applicant",
-      "International applicants accepted",
-      "Computer science or related technical field",
-    ],
-    requirements: [
-      "Python fundamentals",
-      "Interest in AI research",
-      "Short technical statement",
-    ],
-    benefits: [
-      "Fully funded participation",
-      "Research mentorship",
-      "Final project showcase",
-    ],
-    matchedSkills: ["Python", "AI", "Machine Learning"],
-    gaps: ["Research writing sample recommended"],
-  },
-  {
-    id: "devpost-climate",
-    title: "Build for Climate Hackathon",
-    organization: "Open Impact Network",
-    category: "Hackathon",
-    match: 89,
-    deadline: "2026-08-18",
-    daysRemaining: 10,
-    location: "Online",
-    remote: true,
-    workMode: "Remote",
-    funding: "$10K prize pool",
-    fundingType: "Prize",
-    verified: true,
-    isNew: true,
-    lastChecked: "16 min ago",
-    sourceUrl: "https://devpost.com/",
-    applicationUrl: "https://devpost.com/",
-    shortDescription:
-      "A fast-moving online hackathon for software and AI prototypes that address climate, energy, mobility, or resilience problems.",
-    description:
-      "Teams build and ship a working climate-focused product during a time-boxed online hackathon with technical and impact judging.",
-    eligibility: [
-      "Open online participation",
-      "Team or solo entry",
-      "Public project demo required",
-    ],
-    requirements: [
-      "Working software project",
-      "Public demo",
-      "Short submission description",
-    ],
-    benefits: ["Prize pool", "Public showcase", "Mentor feedback"],
-    matchedSkills: ["React", "AI", "Python"],
-    gaps: ["Add a climate-specific problem statement"],
-  },
-  {
-    id: "europe-tech-scholarship",
-    title: "Emerging Technologists Scholarship",
-    organization: "European Digital Foundation",
-    category: "Scholarship",
-    match: 86,
-    deadline: "2026-10-15",
-    daysRemaining: 68,
-    location: "Europe",
-    remote: false,
-    workMode: "On-site",
-    funding: "Tuition support",
-    fundingType: "Fully funded",
-    verified: true,
-    isNew: false,
-    lastChecked: "32 min ago",
-    sourceUrl: "https://example.org/edf-scholarship",
-    applicationUrl: "https://example.org/edf-scholarship/apply",
-    shortDescription:
-      "A scholarship supporting high-potential computing students pursuing advanced technical study and community impact.",
-    description:
-      "A scholarship program for students in computing-related disciplines with a focus on academic promise, community contribution, and technology leadership.",
-    eligibility: [
-      "Computing-related field",
-      "Academic enrollment required",
-      "International route available for selected institutions",
-    ],
-    requirements: [
-      "Academic transcript",
-      "Personal statement",
-      "One reference",
-    ],
-    benefits: [
-      "Tuition support",
-      "Mentor network",
-      "Community events",
-    ],
-    matchedSkills: ["Computer Science", "AI"],
-    gaps: ["Check institution eligibility before applying"],
-  },
-  {
-    id: "remote-frontend-intern",
-    title: "Frontend Engineering Internship",
-    organization: "Nova Labs",
-    category: "Internship",
-    match: 84,
-    deadline: "2026-08-26",
-    daysRemaining: 18,
-    location: "Remote",
-    remote: true,
-    workMode: "Remote",
-    funding: "Paid",
-    fundingType: "Paid",
-    verified: true,
-    isNew: true,
-    lastChecked: "20 min ago",
-    sourceUrl: "https://example.org/nova-labs-careers",
-    applicationUrl:
-      "https://example.org/nova-labs-careers/frontend-intern",
-    shortDescription:
-      "A remote product engineering internship focused on React interfaces, accessibility, experimentation, and shipping user-facing features.",
-    description:
-      "A product-focused frontend internship where interns contribute to a React application with guidance from senior engineers and designers.",
-    eligibility: [
-      "Student or recent graduate",
-      "Remote availability",
-      "Portfolio or project experience",
-    ],
-    requirements: ["React", "JavaScript", "Git"],
-    benefits: [
-      "Paid internship",
-      "Mentorship",
-      "Production experience",
-    ],
-    matchedSkills: ["React", "JavaScript", "UI/UX"],
-    gaps: ["Add one polished public React project"],
-  },
-  {
-    id: "open-data-challenge",
-    title: "Global Open Data Challenge",
-    organization: "Civic Data Alliance",
-    category: "Competition",
-    match: 81,
-    deadline: "2026-09-20",
-    daysRemaining: 43,
-    location: "Global",
-    remote: true,
-    workMode: "Remote",
-    funding: "$5K awards",
-    fundingType: "Prize",
-    verified: false,
-    isNew: false,
-    lastChecked: "1 hr ago",
-    sourceUrl: "https://example.org/open-data-challenge",
-    applicationUrl: "https://example.org/open-data-challenge",
-    shortDescription:
-      "A public-data competition for teams building useful visualizations, civic tools, and applied analytics from open datasets.",
-    description:
-      "A global challenge inviting participants to turn public datasets into meaningful applications, visualizations, or research prototypes.",
-    eligibility: [
-      "Global participation",
-      "Public submission",
-      "Use of open datasets",
-    ],
-    requirements: [
-      "Working prototype",
-      "Public repository",
-      "Short impact note",
-    ],
-    benefits: [
-      "Awards",
-      "Public recognition",
-      "Community feedback",
-    ],
-    matchedSkills: ["Python", "Data Science"],
-    gaps: ["Data visualization experience would improve fit"],
-  },
-  {
-    id: "linux-mentorship",
-    title: "Open Source Mentorship Program",
-    organization: "Linux Ecosystem Initiative",
-    category: "Open Source",
-    match: 78,
-    deadline: "2026-11-05",
-    daysRemaining: 89,
-    location: "Global",
-    remote: true,
-    workMode: "Remote",
-    funding: "Stipend varies",
-    fundingType: "Paid",
-    verified: true,
-    isNew: false,
-    lastChecked: "44 min ago",
-    sourceUrl: "https://example.org/linux-mentorship",
-    applicationUrl:
-      "https://example.org/linux-mentorship/apply",
-    shortDescription:
-      "Mentored contributions to open-source infrastructure projects with structured technical guidance and community review.",
-    description:
-      "A mentorship pathway for developers who want to contribute to open-source infrastructure and learn community development workflows.",
-    eligibility: [
-      "Global applicants",
-      "Basic development experience",
-      "Can contribute asynchronously",
-    ],
-    requirements: [
-      "Git",
-      "Programming fundamentals",
-      "Interest in systems or infrastructure",
-    ],
-    benefits: [
-      "Mentorship",
-      "Open-source portfolio",
-      "Community network",
-    ],
-    matchedSkills: ["Open Source", "Git"],
-    gaps: ["Linux systems experience would improve your match"],
-  },
-];
-
-const initialRuns = [
-  {
-    id: 1,
-    started: "Today · 02:00",
-    status: "Success",
-    sources: 12,
-    urls: 73,
-    newCount: 6,
-    updated: 4,
-    expired: 1,
-    aiCalls: 8,
-  },
-  {
-    id: 2,
-    started: "Yesterday · 02:00",
-    status: "Success",
-    sources: 12,
-    urls: 61,
-    newCount: 4,
-    updated: 2,
-    expired: 3,
-    aiCalls: 6,
-  },
-  {
-    id: 3,
-    started: "Aug 6 · 02:00",
-    status: "Partial",
-    sources: 12,
-    urls: 58,
-    newCount: 5,
-    updated: 1,
-    expired: 0,
-    aiCalls: 7,
-  },
-];
 
 const defaultProfile = {
   fullName: "", country: "", education: "", field: "", graduationYear: "",
   skills: [], interests: [], workMode: "Any", preferredRegions: [], fundingPreference: "Any funding",
 };
 
-function readJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function OrbitProvider({ children }) {
   const [auth, setAuth] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [profile, setProfileState] = useState(defaultProfile);
-  // Phase 3 replaces local opportunity and saved workflows.
-  const [opportunities, setOpportunities] = useState(opportunitySeed);
+  const [opportunities, setOpportunities] = useState([]);
+  const [opportunitiesLoading, setOpportunitiesLoading] = useState(true);
+  const [opportunitiesError, setOpportunitiesError] = useState("");
+  const [stats, setStats] = useState({ recommended: 0, closingSoon: 0, newToday: 0, saved: 0, totalActive: 0 });
   const [saved, setSaved] = useState({});
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [savedError, setSavedError] = useState("");
   const [runs, setRuns] = useState([]);
 
   useEffect(() => {
@@ -456,6 +103,36 @@ function OrbitProvider({ children }) {
       window.removeEventListener("orbit:session-expired", expire);
     };
   }, []);
+
+  // Read-only data flow: never starts ingestion or changes existing backend pipelines.
+  useEffect(() => {
+    let active = true;
+    if (!auth) {
+      setOpportunities([]);
+      setSaved({});
+      setOpportunitiesLoading(false);
+      setSavedLoading(false);
+      return () => { active = false; };
+    }
+    setOpportunitiesLoading(true);
+    setSavedLoading(true);
+    setOpportunitiesError("");
+    setSavedError("");
+    getOpportunities({ pageSize: 100 }).then(result => {
+      if (active) setOpportunities(result.items);
+    }).catch(error => {
+      if (active) setOpportunitiesError(error.message || "Unable to load opportunities.");
+    }).finally(() => { if (active) setOpportunitiesLoading(false); });
+    getSaved().then(rows => {
+      if (active) setSaved(Object.fromEntries(rows.map(row => [row.originalOpportunityId, row])));
+    }).catch(error => {
+      if (active) setSavedError(error.message || "Unable to load saved opportunities.");
+    }).finally(() => { if (active) setSavedLoading(false); });
+    apiRequest("/api/stats").then(data => {
+      if (active) setStats(data);
+    }).catch(() => { /* Stats failures never invent numbers. */ });
+    return () => { active = false; };
+  }, [auth, profile]);
 
   const login = async ({ email, password, fullName, isRegister }) => {
     const response = await apiRequest(isRegister ? "/api/auth/register" : "/api/auth/login", {
@@ -491,48 +168,37 @@ function OrbitProvider({ children }) {
     return updated;
   };
 
-  const toggleSave = (opp) => {
-    setSaved((current) => {
-      const next = { ...current };
-
-      if (next[opp.id]) {
-        delete next[opp.id];
+  const toggleSave = async (opp) => {
+    setSavedError("");
+    try {
+      if (saved[opp.id]) {
+        await unsaveOpportunity(opp.id);
+        setSaved(current => {
+          const next = { ...current };
+          delete next[opp.id];
+          return next;
+        });
       } else {
-        next[opp.id] = {
-          status: "saved",
-          savedAt: new Date().toISOString(),
-          snapshot: opp,
-        };
+        const row = await saveOpportunity(opp.id);
+        setSaved(current => ({ ...current, [opp.id]: row }));
       }
-
-      localStorage.setItem(
-        "orbit_saved",
-        JSON.stringify(next)
-      );
-
-      return next;
-    });
+    } catch (error) {
+      setSavedError(error.message || "Unable to change saved opportunity.");
+      throw error;
+    }
   };
 
-  const setSavedStatus = (id, status) => {
-    setSaved((current) => {
-      if (!current[id]) return current;
-
-      const next = {
-        ...current,
-        [id]: {
-          ...current[id],
-          status,
-        },
-      };
-
-      localStorage.setItem(
-        "orbit_saved",
-        JSON.stringify(next)
-      );
-
-      return next;
-    });
+  const setSavedStatus = async (id, status) => {
+    const row = saved[id];
+    if (!row || !["saved", "planning", "applied"].includes(status)) return;
+    setSavedError("");
+    try {
+      const updated = await updateSavedStatus(row.id, status);
+      setSaved(current => ({ ...current, [id]: updated }));
+    } catch (error) {
+      setSavedError(error.message || "Unable to update application status.");
+      throw error;
+    }
   };
 
   const addRun = (run) => {
@@ -559,7 +225,12 @@ function OrbitProvider({ children }) {
         saveProfile,
         opportunities,
         setOpportunities,
+        opportunitiesLoading,
+        opportunitiesError,
+        stats,
         saved,
+        savedLoading,
+        savedError,
         toggleSave,
         setSavedStatus,
         runs,
@@ -1536,22 +1207,19 @@ function DashboardPage() {
     opportunities,
     saved,
     toggleSave,
+    opportunitiesLoading,
+    opportunitiesError,
+    stats,
   } = useOrbit();
 
   const top = [...opportunities]
     .sort((a, b) => b.match - a.match)
     .slice(0, 4);
 
-  const closing = opportunities.filter(
-    (x) => x.daysRemaining <= 30
-  ).length;
-
-  const fresh = opportunities.filter(
-    (x) => x.isNew
-  ).length;
-
-  const savedCount = Object.keys(saved).length;
-  const recommended = opportunities.filter((x) => x.match >= 80).length;
+  const closing = Number(stats.closingSoon) || 0;
+  const fresh = Number(stats.newToday) || 0;
+  const savedCount = Number(stats.saved) || 0;
+  const recommended = Number(stats.recommended) || 0;
   const strongest = top[0]?.match || 0;
   const profileStrength = Math.min(
     100,
@@ -1583,7 +1251,7 @@ function DashboardPage() {
             </h1>
 
             <p className="mt-4 max-w-[570px] text-[13px] leading-6 text-[#93a6a1] sm:text-sm">
-              Orbit has ranked {opportunities.length} opportunities against your current profile, eligibility signals and preferences.
+              Orbit currently has {Number(stats.totalActive) || 0} active opportunities indexed for matching.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2">
@@ -1607,10 +1275,10 @@ function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs text-[#839790]">Orbit Radar</div>
-              <div className="font-display mt-1 text-lg font-bold text-white">Live discovery</div>
+              <div className="font-display mt-1 text-lg font-bold text-white">Opportunity index</div>
             </div>
             <div className="rounded-lg border border-[#69f0c0]/10 bg-[#69f0c0]/10 px-2 py-1 text-[10px] font-bold text-[#81f5cc]">
-              ACTIVE
+              DATA
             </div>
           </div>
 
@@ -1628,7 +1296,7 @@ function DashboardPage() {
 
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
-              <div className="text-sm font-bold text-white">{opportunities.length}</div>
+              <div className="text-sm font-bold text-white">{Number(stats.totalActive) || 0}</div>
               <div className="text-[9px] text-[#6e827d]">Ranked</div>
             </div>
             <div>
@@ -1647,14 +1315,14 @@ function DashboardPage() {
         <MetricCard
           label="Strong matches"
           value={recommended}
-          hint="80%+ profile fit"
+          hint="70%+ profile fit"
           icon={Target}
           tone="slate"
         />
         <MetricCard
           label="Closing soon"
           value={closing}
-          hint="Within 30 days"
+          hint="Within 7 days"
           icon={CalendarClock}
           tone="amber"
         />
@@ -1707,6 +1375,9 @@ function DashboardPage() {
           </div>
 
           <div className="space-y-3">
+            {opportunitiesLoading && <p className="text-sm text-[#8fa19e]">Loading opportunities…</p>}
+            {opportunitiesError && <p role="alert" className="text-sm text-red-300">{opportunitiesError}</p>}
+            {!opportunitiesLoading && !opportunitiesError && top.length === 0 && <p className="text-sm text-[#8fa19e]">No active opportunities are available yet.</p>}
             {top.map((opp) => (
               <OpportunityCard
                 key={opp.id}
@@ -1770,7 +1441,7 @@ function DashboardPage() {
             <div className="space-y-4 p-5">
               <div className="relative pl-5">
                 <span className="absolute left-0 top-1 h-2 w-2 rounded-full bg-[#d5ff69]" />
-                <div className="text-[11px] font-medium text-white">{fresh} new opportunities found</div>
+                <div className="text-[11px] font-medium text-white">{fresh} new opportunities indexed today</div>
                 <div className="mt-1 text-[9px] text-[#6d827b]">Latest ranked dataset</div>
               </div>
               <div className="relative pl-5">
@@ -1814,302 +1485,69 @@ function Signal({ label, value }) {
 }
 
 function DiscoverPage() {
-  const {
-    opportunities,
-    setOpportunities,
-    saved,
-    toggleSave,
-  } = useOrbit();
-
+  const { saved, toggleSave } = useOrbit();
   const [q, setQ] = useState("");
-  const [category, setCategory] =
-    useState("All");
-  const [workMode, setWorkMode] =
-    useState("Any");
-  const [funding, setFunding] =
-    useState("Any");
-  const [deadline, setDeadline] =
-    useState("Any");
-  const [minMatch, setMinMatch] =
-    useState(0);
-  const [sort, setSort] =
-    useState("Best match");
+  const [category, setCategory] = useState("All");
+  const [workMode, setWorkMode] = useState("Any");
+  const [funding, setFunding] = useState("Any");
+  const [deadline, setDeadline] = useState("Any");
+  const [minMatch, setMinMatch] = useState(0);
+  const [sort, setSort] = useState("Best match");
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiAnswer, setAiAnswer] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [filtered, setFiltered] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-  const [aiQuery, setAiQuery] =
-    useState("");
+  // API is the sole source of results, including sorting and filtering.
+  useEffect(() => { setPage(1); }, [q, category, workMode, funding, deadline, minMatch, sort]);
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      setLoadError("");
+      const categoryKey = category === "All" ? undefined : category.toLowerCase().replace(/\s+/g, "_");
+      const days = { "≤ 14 days": 14, "≤ 30 days": 30, "≤ 60 days": 60 }[deadline];
+      const deadlineBefore = days ? new Date(Date.now() + days * 86400000).toISOString() : undefined;
+      try {
+        const data = await getOpportunities({
+          q: q.trim() || undefined,
+          category: categoryKey,
+          remote: workMode === "Remote" ? true : undefined,
+          funded: funding === "Funded/Paid" ? true : undefined,
+          deadlineBefore,
+          minMatch,
+          sort: { "Best match": "best_match", "Newest": "newest", "Deadline soon": "deadline" }[sort],
+          page,
+          pageSize,
+        });
+        if (active) {
+          setFiltered(data.items);
+          setTotal(data.total);
+        }
+      } catch (error) {
+        if (active) { setFiltered([]); setTotal(0); setLoadError(error.message || "Search failed."); }
+      } finally { if (active) setLoading(false); }
+    }, 220);
+    return () => { active = false; clearTimeout(timer); };
+  }, [q, category, workMode, funding, deadline, minMatch, sort, page]);
 
-  const [aiAnswer, setAiAnswer] =
-    useState(null);
-
-  const [discovering, setDiscovering] =
-    useState(false);
-
-  const [phase, setPhase] =
-    useState("");
-
-  const filtered = useMemo(() => {
-    let data = opportunities.filter(
-      (o) => {
-        const hay =
-          `${o.title} ${o.organization} ${o.category} ${o.matchedSkills.join(
-            " "
-          )}`.toLowerCase();
-
-        const matchesQ =
-          !q ||
-          hay.includes(
-            q.toLowerCase()
-          );
-
-        const matchesCategory =
-          category === "All" ||
-          o.category === category;
-
-        const matchesMode =
-          workMode === "Any" ||
-          o.workMode === workMode ||
-          (workMode === "Remote" &&
-            o.remote);
-
-        const matchesFunding =
-          funding === "Any" ||
-          (funding ===
-            "Funded/Paid" &&
-            [
-              "Paid",
-              "Fully funded",
-            ].includes(
-              o.fundingType
-            )) ||
-          o.fundingType === funding;
-
-        const matchesDeadline =
-          deadline === "Any" ||
-          (deadline === "≤ 14 days" &&
-            o.daysRemaining <= 14) ||
-          (deadline === "≤ 30 days" &&
-            o.daysRemaining <= 30) ||
-          (deadline === "≤ 60 days" &&
-            o.daysRemaining <= 60);
-
-        return (
-          matchesQ &&
-          matchesCategory &&
-          matchesMode &&
-          matchesFunding &&
-          matchesDeadline &&
-          o.match >=
-          Number(minMatch)
-        );
-      }
-    );
-
-    if (sort === "Best match") {
-      data = [...data].sort(
-        (a, b) =>
-          b.match - a.match
-      );
-    }
-
-    if (sort === "Newest") {
-      data = [...data].sort(
-        (a, b) =>
-          Number(b.isNew) -
-          Number(a.isNew)
-      );
-    }
-
-    if (sort === "Deadline soon") {
-      data = [...data].sort(
-        (a, b) =>
-          a.daysRemaining -
-          b.daysRemaining
-      );
-    }
-
-    return data;
-  }, [
-    opportunities,
-    q,
-    category,
-    workMode,
-    funding,
-    deadline,
-    minMatch,
-    sort,
-  ]);
-
-  const askOrbit = () => {
-    if (!aiQuery.trim()) return;
-
-    const lower =
-      aiQuery.toLowerCase();
-
-    let result = [
-      ...opportunities,
-    ];
-
-    if (
-      lower.includes("funded") ||
-      lower.includes("paid")
-    ) {
-      result = result.filter((o) =>
-        [
-          "Paid",
-          "Fully funded",
-        ].includes(o.fundingType)
-      );
-    }
-
-    if (lower.includes("ai")) {
-      result = result.filter(
-        (o) =>
-          o.matchedSkills.some(
-            (s) =>
-              [
-                "AI",
-                "Machine Learning",
-                "Python",
-              ].includes(s)
-          ) ||
-          o.title
-            .toLowerCase()
-            .includes("ai")
-      );
-    }
-
-    if (lower.includes("remote")) {
-      result = result.filter(
-        (o) => o.remote
-      );
-    }
-
-    if (
-      lower.includes("hackathon")
-    ) {
-      result = result.filter(
-        (o) =>
-          o.category === "Hackathon"
-      );
-    }
-
-    if (
-      lower.includes("fellowship")
-    ) {
-      result = result.filter(
-        (o) =>
-          o.category ===
-          "Fellowship" ||
-          o.category === "Research"
-      );
-    }
-
-    result = result
-      .sort(
-        (a, b) =>
-          b.match - a.match
-      )
-      .slice(0, 4);
-
-    setAiAnswer({
-      text: `I found ${result.length} strong local-preview matches for that request. In the backend build, Groq will translate this query into validated filters and explain the evidence behind each match.`,
-      results: result,
-    });
-  };
-
-  const liveSearch = () => {
-    if (discovering) return;
-
-    setDiscovering(true);
-    setPhase(
-      "Searching public sources…"
-    );
-
-    setTimeout(() => {
-      setPhase(
-        "Checking candidate pages…"
-      );
-    }, 700);
-
-    setTimeout(() => {
-      setPhase(
-        "Normalizing and deduplicating…"
-      );
-    }, 1400);
-
-    setTimeout(() => {
-      const id =
-        "demo-new-radar";
-
-      if (
-        !opportunities.some(
-          (o) => o.id === id
-        )
-      ) {
-        setOpportunities(
-          (prev) => [
-            {
-              id,
-              title:
-                "Responsible AI Builders Program",
-              organization:
-                "Open Technology Collective",
-              category: "Fellowship",
-              match: 91,
-              deadline:
-                "2026-09-12",
-              daysRemaining: 35,
-              location: "Global",
-              remote: true,
-              workMode: "Remote",
-              funding:
-                "Funded cohort",
-              fundingType:
-                "Fully funded",
-              verified: true,
-              isNew: true,
-              lastChecked:
-                "just now",
-              sourceUrl:
-                "https://example.org/responsible-ai-builders",
-              applicationUrl:
-                "https://example.org/responsible-ai-builders/apply",
-              shortDescription:
-                "A newly discovered remote program for technical students building responsible AI prototypes with mentor support.",
-              description:
-                "A cohort-based technical program focused on practical responsible AI systems.",
-              eligibility: [
-                "Technical student or early-career builder",
-                "Global applications",
-              ],
-              requirements: [
-                "Python or JavaScript",
-                "Short project idea",
-              ],
-              benefits: [
-                "Funded cohort",
-                "Mentorship",
-              ],
-              matchedSkills: [
-                "AI",
-                "Python",
-                "React",
-              ],
-              gaps: [
-                "Prepare a concise project proposal",
-              ],
-            },
-            ...prev,
-          ]
-        );
-      }
-
-      setPhase(
-        "1 new opportunity discovered"
-      );
-
-      setDiscovering(false);
-    }, 2200);
+  const askOrbit = async () => {
+    if (aiLoading || !aiQuery.trim()) return;
+    setAiLoading(true);
+    setAiAnswer(null);
+    setAiError("");
+    try {
+      const data = await askOrbitApi(aiQuery.trim());
+      setAiAnswer({ text: data.answer || "Search completed.", results: data.items });
+    } catch (error) {
+      setAiError(error.message || "Ask Orbit could not complete your search.");
+    } finally { setAiLoading(false); }
   };
 
   return (
@@ -2128,52 +1566,12 @@ function DiscoverPage() {
           <p className="mt-2 text-sm text-slate-500">
             Search the current radar,
             ask Orbit in natural
-            language, or trigger a live
-            discovery preview.
+            language, with results loaded directly from the server.
           </p>
         </div>
 
-        <button
-          onClick={liveSearch}
-          className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
-          disabled={discovering}
-        >
-          {discovering ? (
-            <Loader2
-              size={15}
-              className="animate-spin"
-            />
-          ) : (
-            <Globe2 size={15} />
-          )}
-
-          Search live web
-        </button>
+        <span className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">Live ingestion runs independently through the existing backend pipeline</span>
       </div>
-
-      {phase && (
-        <div
-          className={`mt-5 flex items-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold ${discovering
-            ? "border-blue-100 bg-blue-50 text-blue-800"
-            : "border-emerald-100 bg-emerald-50 text-emerald-800"
-            }`}
-        >
-          {discovering ? (
-            <Loader2
-              size={14}
-              className="animate-spin"
-            />
-          ) : (
-            <CheckCircle2 size={14} />
-          )}
-
-          {phase}
-
-          <span className="ml-auto font-medium opacity-70">
-            Frontend preview
-          </span>
-        </div>
-      )}
 
       <section className="mt-6 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-blue-600">
@@ -2206,10 +1604,12 @@ function DiscoverPage() {
 
           <button
             onClick={askOrbit}
+            disabled={aiLoading}
             className="rounded-2xl bg-blue-600 px-6 py-4 text-sm font-black text-white"
           >
-            Ask Orbit
+            {aiLoading ? "Searching…" : "Ask Orbit"}
           </button>
+          {aiError && <p role="alert" className="text-xs text-red-700">{aiError}</p>}
         </div>
 
         {aiAnswer && (
@@ -2337,12 +1737,11 @@ function DiscoverPage() {
       <div className="mt-6 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-black">
-            {filtered.length} opportunities
+            {total} opportunities
           </h2>
 
           <p className="mt-1 text-xs text-slate-500">
-            Showing results from the
-            current local radar.
+            Showing server results from the current opportunity index.
           </p>
         </div>
 
@@ -2352,8 +1751,10 @@ function DiscoverPage() {
         </div>
       </div>
 
+      {loading && <p className="mt-4 text-sm text-slate-600">Loading opportunities…</p>}
+      {loadError && <p role="alert" className="mt-4 text-sm text-red-700">{loadError}</p>}
       <div className="mt-4 grid gap-3 xl:grid-cols-2">
-        {filtered.map((o) => (
+        {!loading && !loadError && filtered.map((o) => (
           <OpportunityCard
             key={o.id}
             opportunity={o}
@@ -2366,13 +1767,30 @@ function DiscoverPage() {
           />
         ))}
 
-        {filtered.length === 0 && (
+        {!loading && !loadError && filtered.length === 0 && (
           <Empty
             title="No matches in this view"
             text="Relax a filter or search for a different keyword."
           />
         )}
       </div>
+      {!loading && !loadError && total > pageSize && (
+        <div className="mt-5 flex items-center justify-between gap-3 text-sm">
+          <button
+            type="button"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-bold disabled:opacity-40"
+          >Previous</button>
+          <span>Page {page} of {Math.ceil(total / pageSize)}</span>
+          <button
+            type="button"
+            onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
+            disabled={page >= Math.ceil(total / pageSize)}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-bold disabled:opacity-40"
+          >Next</button>
+        </div>
+      )}
     </ShellRoute>
   );
 }
@@ -2422,17 +1840,33 @@ function OpportunityDetailPage() {
 
   const navigate = useNavigate();
 
-  const opp =
-    opportunities.find(
-      (x) => x.id === id
-    ) || saved[id]?.snapshot;
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(true);
+  const [detailError, setDetailError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setDetail(null);
+    setDetailLoading(true);
+    setDetailError("");
+    getOpportunity(id).then(record => {
+      if (active) setDetail(record);
+    }).catch(error => {
+      if (active) setDetailError(error.message || "Opportunity not found");
+    }).finally(() => { if (active) setDetailLoading(false); });
+    return () => { active = false; };
+  }, [id]);
+  const opp = detail || saved[id]?.snapshot;
+
+  if (detailLoading) {
+    return <ShellRoute><p className="p-6 text-sm text-slate-600">Loading opportunity…</p></ShellRoute>;
+  }
 
   if (!opp) {
     return (
       <ShellRoute>
         <Empty
           title="Opportunity not found"
-          text="It may have expired or been removed from the active radar."
+          text={detailError || "It may have expired or been removed from the active radar."}
           action={
             <button
               onClick={() =>
@@ -2583,11 +2017,7 @@ function OpportunityDetailPage() {
               )}
 
               <p className="mt-4 text-xs leading-6 text-slate-500">
-                Orbit will replace this
-                preview logic with
-                deterministic backend
-                scoring plus optional AI
-                explanation.
+                Match signals are calculated by the backend from your profile and opportunity data.
               </p>
             </InfoPanel>
 
@@ -2726,10 +2156,7 @@ function OpportunityDetailPage() {
                     "applied",
                     "Applied",
                   ],
-                  [
-                    "expired",
-                    "Expired / closed",
-                  ],
+
                 ].map(
                   ([
                     value,
@@ -2841,6 +2268,8 @@ function SavedPage() {
     saved,
     toggleSave,
     setSavedStatus,
+    savedLoading,
+    savedError,
   } = useOrbit();
 
   const [tab, setTab] =
@@ -2849,7 +2278,7 @@ function SavedPage() {
   const records = Object.values(
     saved
   ).filter(
-    (r) => r.status === tab
+    (r) => tab === "expired" ? r.expired : (!r.expired && r.status === tab)
   );
 
   const tabs = [
@@ -2908,8 +2337,10 @@ function SavedPage() {
         )}
       </div>
 
+      {savedLoading && <p className="mt-4 text-sm text-slate-600">Loading your saved opportunities…</p>}
+      {savedError && <p role="alert" className="mt-4 text-sm text-red-700">{savedError}</p>}
       <div className="mt-5 grid gap-4 xl:grid-cols-2">
-        {records.map((r) => (
+        {!savedLoading && !savedError && records.map((r) => (
           <div
             key={r.snapshot.id}
             className="space-y-2"
@@ -2958,23 +2389,12 @@ function SavedPage() {
                     </button>
                   )}
 
-                <button
-                  onClick={() =>
-                    setSavedStatus(
-                      r.snapshot.id,
-                      "expired"
-                    )
-                  }
-                  className="rounded-lg px-3 py-2 text-[11px] font-bold text-slate-400 hover:bg-slate-50"
-                >
-                  Archive
-                </button>
               </div>
             )}
           </div>
         ))}
 
-        {records.length === 0 && (
+        {!savedLoading && !savedError && records.length === 0 && (
           <Empty
             title={`No ${tabs
               .find(
@@ -2992,396 +2412,21 @@ function SavedPage() {
 }
 
 function IngestionPage() {
-  const {
-    runs,
-    addRun,
-    opportunities,
-    setOpportunities,
-  } = useOrbit();
-
-  const [running, setRunning] =
-    useState(false);
-
-  const [progress, setProgress] =
-    useState(0);
-
-  const [message, setMessage] =
-    useState("");
-
-  const latest = runs[0];
-
-  const runNow = () => {
-    if (running) return;
-
-    setRunning(true);
-    setProgress(12);
-    setMessage(
-      "Loading source registry…"
-    );
-
-    const steps = [
-      [
-        500,
-        30,
-        "Discovering RSS, sitemap and listing URLs…",
-      ],
-      [
-        1100,
-        54,
-        "Fetching new and changed candidate pages…",
-      ],
-      [
-        1700,
-        76,
-        "Normalizing, deduplicating and scoring…",
-      ],
-      [
-        2300,
-        94,
-        "Expiring stale records and saving run metrics…",
-      ],
-    ];
-
-    steps.forEach(
-      ([ms, p, m]) =>
-        setTimeout(() => {
-          setProgress(p);
-          setMessage(m);
-        }, ms)
-    );
-
-    setTimeout(() => {
-      const run = {
-        id: Date.now(),
-        started: "Just now",
-        status: "Success",
-        sources: 14,
-        urls: 86,
-        newCount: 7,
-        updated: 3,
-        expired: 2,
-        aiCalls: 9,
-      };
-
-      addRun(run);
-
-      if (
-        !opportunities.some(
-          (o) =>
-            o.id ===
-            "radar-status-demo"
-        )
-      ) {
-        setOpportunities(
-          (prev) => [
-            {
-              ...opportunitySeed[2],
-              id: "radar-status-demo",
-              title:
-                "Applied AI Student Fellowship",
-              organization:
-                "Open Research Collective",
-              match: 93,
-              isNew: true,
-              lastChecked:
-                "just now",
-            },
-            ...prev,
-          ]
-        );
-      }
-
-      setProgress(100);
-
-      setMessage(
-        "Discovery completed — 7 new opportunities normalized."
-      );
-
-      setRunning(false);
-    }, 3000);
-  };
-
-  const sources = [
-    {
-      name:
-        "Official program feeds",
-      type: "RSS / listing",
-      status: "Healthy",
-      last: "8 min ago",
-    },
-    {
-      name:
-        "Public opportunity sitemaps",
-      type: "Sitemap",
-      status: "Healthy",
-      last: "9 min ago",
-    },
-    {
-      name:
-        "University opportunity pages",
-      type: "HTTP",
-      status: "Healthy",
-      last: "10 min ago",
-    },
-    {
-      name:
-        "Optional SearXNG discovery",
-      type: "Search",
-      status: "Not configured",
-      last: "—",
-    },
-  ];
-
   return (
     <ShellRoute>
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-        <div>
-          <div className="text-xs font-bold uppercase tracking-[0.15em] text-blue-600">
-            Radar Status
-          </div>
-
-          <h1 className="mt-2 text-3xl font-black tracking-tight">
-            Discovery engine visibility.
-          </h1>
-
-          <p className="mt-2 text-sm text-slate-500">
-            A judge-friendly view of
-            what the recurring opportunity
-            pipeline is doing.
-          </p>
-        </div>
-
-        <button
-          onClick={runNow}
-          disabled={running}
-          className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
-        >
-          {running ? (
-            <Loader2
-              size={15}
-              className="animate-spin"
-            />
-          ) : (
-            <Play size={15} />
-          )}
-
-          Run Discovery now
-        </button>
-      </div>
-
-      <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        <strong>
-          Frontend preview:
-        </strong>{" "}
-        these controls simulate the
-        final interaction. Once FastAPI
-        is connected, every metric and
-        run row must come from real
-        ingestion records.
-      </div>
-
-      {(running || message) && (
-        <div className="mt-4 rounded-2xl border border-blue-100 bg-white p-4">
-          <div className="flex items-center justify-between text-xs font-bold">
-            <span>{message}</span>
-            <span>{progress}%</span>
-          </div>
-
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-blue-600 transition-all"
-              style={{
-                width: `${progress}%`,
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          label="Sources scanned"
-          value={
-            latest?.sources || 0
-          }
-          hint="Latest discovery run"
-          icon={Globe2}
-          tone="slate"
-        />
-
-        <MetricCard
-          label="URLs discovered"
-          value={latest?.urls || 0}
-          hint="Candidate pages"
-          icon={Search}
-          tone="white"
-        />
-
-        <MetricCard
-          label="New opportunities"
-          value={
-            latest?.newCount || 0
-          }
-          hint="Normalized records"
-          icon={Zap}
-          tone="blue"
-        />
-
-        <MetricCard
-          label="Expired"
-          value={
-            latest?.expired || 0
-          }
-          hint="Removed from active feed"
-          icon={Clock3}
-          tone="white"
-        />
-      </section>
-
-      <section className="mt-6 grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-black">
-                Recent runs
-              </h2>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Cron and manual
-                ingestion history.
-              </p>
-            </div>
-
-            <RefreshCw
-              size={16}
-              className="text-slate-400"
-            />
-          </div>
-
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                  <th className="pb-3">
-                    Started
-                  </th>
-
-                  <th className="pb-3">
-                    Status
-                  </th>
-
-                  <th className="pb-3">
-                    URLs
-                  </th>
-
-                  <th className="pb-3">
-                    New
-                  </th>
-
-                  <th className="pb-3">
-                    Updated
-                  </th>
-
-                  <th className="pb-3">
-                    AI calls
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {runs.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="border-b border-slate-50"
-                  >
-                    <td className="py-4 font-bold">
-                      {r.started}
-                    </td>
-
-                    <td>
-                      <span
-                        className={`rounded-full px-2 py-1 text-[10px] font-black ${r.status ===
-                          "Success"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-amber-50 text-amber-700"
-                          }`}
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-
-                    <td>{r.urls}</td>
-
-                    <td>
-                      {r.newCount}
-                    </td>
-
-                    <td>
-                      {r.updated}
-                    </td>
-
-                    <td>
-                      {r.aiCalls}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5">
-          <div>
-            <h2 className="text-lg font-black">
-              Source health
-            </h2>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Primary discovery
-              adapters and optional
-              search layer.
-            </p>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            {sources.map((s) => (
-              <div
-                key={s.name}
-                className="flex items-center gap-3 rounded-2xl border border-slate-100 p-4"
-              >
-                <div
-                  className={`grid h-9 w-9 place-items-center rounded-xl ${s.status ===
-                    "Healthy"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-slate-100 text-slate-500"
-                    }`}
-                >
-                  <Database size={16} />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs font-black">
-                    {s.name}
-                  </div>
-
-                  <div className="mt-1 text-[10px] text-slate-400">
-                    {s.type} · {s.last}
-                  </div>
-                </div>
-
-                <div
-                  className={`text-[10px] font-black ${s.status ===
-                    "Healthy"
-                    ? "text-emerald-700"
-                    : "text-slate-400"
-                    }`}
-                >
-                  {s.status}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <section className="rounded-[24px] border border-slate-200 bg-white p-8">
+        <div className="text-xs font-black uppercase tracking-wide text-blue-600">Radar status</div>
+        <h1 className="mt-3 text-2xl font-black text-slate-950">Discovery and content pipeline</h1>
+        <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
+          The existing backend discovery and content-delivery pipeline is preserved.
+          Phase 3 only connects read/search/save experiences to real backend data.
+          Live ingestion controls and run diagnostics are reserved for Phase 4.
+        </p>
+        <p className="mt-3 text-sm text-slate-600">
+          No simulated discovery counts or generated opportunities are displayed here.
+          Pipeline operation should be checked through backend monitoring.
+        </p>
+        <Link to="/discover" className="mt-6 inline-flex rounded-xl bg-slate-950 px-4 py-3 text-xs font-bold text-white">Explore indexed opportunities</Link>
       </section>
     </ShellRoute>
   );

@@ -21,7 +21,7 @@ const categoryStyles = {
 };
 
 export default function OpportunityCard({ opportunity, saved = false, onToggleSave, compact = false }) {
-  const closing = opportunity.daysRemaining <= 14;
+  const closing = opportunity.daysRemaining !== null && opportunity.daysRemaining !== undefined && opportunity.daysRemaining >= 0 && opportunity.daysRemaining <= 14;
   const initials = opportunity.organization
     .split(" ")
     .map((x) => x[0])
@@ -103,7 +103,7 @@ export default function OpportunityCard({ opportunity, saved = false, onToggleSa
 
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-medium text-[#71857f]">
             <span className={`flex items-center gap-1.5 ${closing ? "text-[#ffcb6b]" : ""}`}>
-              <CalendarDays size={13} /> {opportunity.daysRemaining} days left
+              <CalendarDays size={13} /> {opportunity.daysRemaining == null ? "Deadline not stated" : opportunity.daysRemaining < 0 ? "Deadline passed" : opportunity.daysRemaining + " days left"}
             </span>
             <span className="flex items-center gap-1.5">
               <MapPin size={13} /> {opportunity.location}
