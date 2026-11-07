@@ -96,13 +96,21 @@ function seed() {
     await pageA.goto(WEB+"/saved");
     await pageA.getByText("Orbit Phase3 Test Fellowship 2027").waitFor({timeout:25000});
     await pageA.getByRole("button",{name:"Planning",exact:true}).last().click();
-    await pageA.getByRole("button",{name:/Planning \d/}).first().click();
+    await pageA.getByRole("button",{name:/Planning/}).first().click();
     await pageA.getByText("Orbit Phase3 Test Fellowship 2027").waitFor({timeout:20000});
     await pageA.reload();
-    await pageA.getByRole("button",{name:/Planning \d/}).first().click();
+    await pageA.getByRole("button",{name:/Planning/}).first().click();
     await pageA.getByText("Orbit Phase3 Test Fellowship 2027").waitFor({timeout:25000});
     const after=await req("/api/saved",{token:userA});
     assert.equal(after.data.items[0].applicationStatus,"planning");
+    await pageA.getByRole("button",{name:"Mark applied",exact:true}).click();
+    await pageA.getByRole("button",{name:/Applied/}).first().click();
+    await pageA.getByText("Orbit Phase3 Test Fellowship 2027").waitFor({timeout:20000});
+    await pageA.reload();
+    await pageA.getByRole("button",{name:/Applied/}).first().click();
+    await pageA.getByText("Orbit Phase3 Test Fellowship 2027").waitFor({timeout:20000});
+    const applied=await req("/api/saved",{token:userA});
+    assert.equal(applied.data.items[0].applicationStatus,"applied");
     await pageA.goto(WEB+"/discover");
     const savedCard=pageA.locator("article").filter({hasText:"Orbit Phase3 Test Fellowship 2027"});
     await savedCard.getByRole("button",{name:"Remove saved opportunity"}).click();
@@ -119,7 +127,7 @@ function seed() {
     await pageA.getByRole("heading",{name:"Orbit Phase3 Test Fellowship 2027"}).waitFor({timeout:25000});
     await pageA.getByRole("link",{name:"Apply on official site"}).waitFor({timeout:25000});
     await pageA.goto(WEB+"/opportunities/not-a-real-object-id");
-    await pageA.getByText("Opportunity not found").waitFor({timeout:25000});
+    await pageA.getByRole("heading",{name:"Opportunity not found"}).waitFor({timeout:25000});
   });
   await test(5,"Ask Orbit shows actual backend response",async()=>{
     await pageA.goto(WEB+"/discover");
