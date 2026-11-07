@@ -1819,17 +1819,33 @@ function OpportunityDetailPage() {
 
   const navigate = useNavigate();
 
-  const opp =
-    opportunities.find(
-      (x) => x.id === id
-    ) || saved[id]?.snapshot;
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(true);
+  const [detailError, setDetailError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setDetail(null);
+    setDetailLoading(true);
+    setDetailError("");
+    getOpportunity(id).then(record => {
+      if (active) setDetail(record);
+    }).catch(error => {
+      if (active) setDetailError(error.message || "Opportunity not found");
+    }).finally(() => { if (active) setDetailLoading(false); });
+    return () => { active = false; };
+  }, [id]);
+  const opp = detail || saved[id]?.snapshot;
+
+  if (detailLoading) {
+    return <ShellRoute><p className="p-6 text-sm text-slate-600">Loading opportunity…</p></ShellRoute>;
+  }
 
   if (!opp) {
     return (
       <ShellRoute>
         <Empty
           title="Opportunity not found"
-          text="It may have expired or been removed from the active radar."
+          text={detailError || "It may have expired or been removed from the active radar."}
           action={
             <button
               onClick={() =>
@@ -1980,11 +1996,7 @@ function OpportunityDetailPage() {
               )}
 
               <p className="mt-4 text-xs leading-6 text-slate-500">
-                Orbit will replace this
-                preview logic with
-                deterministic backend
-                scoring plus optional AI
-                explanation.
+                Match signals are calculated by the backend from your profile and opportunity data.
               </p>
             </InfoPanel>
 
@@ -2123,10 +2135,7 @@ function OpportunityDetailPage() {
                     "applied",
                     "Applied",
                   ],
-                  [
-                    "expired",
-                    "Expired / closed",
-                  ],
+
                 ].map(
                   ([
                     value,
