@@ -72,9 +72,6 @@ jobs:
           done
           cat ../frontend-ci.log
           exit 1
-      - name: Seed isolated database only
-        working-directory: backend
-        run: python tests/phase3_seed.py
       - name: Run Phase 2 regression suite
         working-directory: frontend
         run: node e2e/phase2.cjs
