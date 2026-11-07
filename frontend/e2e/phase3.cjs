@@ -150,9 +150,7 @@ function seed() {
   fs.mkdirSync("test-results",{recursive:true});
   fs.writeFileSync("test-results/phase3-results.json",JSON.stringify(results,null,2));
   if(process.env.GITHUB_STEP_SUMMARY){
-    fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"## Phase 3 isolated E2E results\n\n| # | Acceptance | Result |\n|---|---|---|\n"+results.map(r=>`| ${r.n} | ${r.label} | **${r.status}** |`).join("
-")+"
-");
+    fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"## Phase 3 isolated E2E results\n\n| # | Acceptance | Result |\n|---|---|---|\n"+results.map(r=>`| ${r.n} | ${r.label} | **${r.status}** |`).join("\n")+"\n");
   }
   console.log("=== PHASE 3 RESULTS ===");
   for(const r of results)console.log(r.n+" "+r.status+" "+r.label+(r.error?" "+r.error:""));
