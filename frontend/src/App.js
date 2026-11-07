@@ -1485,302 +1485,65 @@ function Signal({ label, value }) {
 }
 
 function DiscoverPage() {
-  const {
-    opportunities,
-    setOpportunities,
-    saved,
-    toggleSave,
-  } = useOrbit();
-
+  const { saved, toggleSave } = useOrbit();
   const [q, setQ] = useState("");
-  const [category, setCategory] =
-    useState("All");
-  const [workMode, setWorkMode] =
-    useState("Any");
-  const [funding, setFunding] =
-    useState("Any");
-  const [deadline, setDeadline] =
-    useState("Any");
-  const [minMatch, setMinMatch] =
-    useState(0);
-  const [sort, setSort] =
-    useState("Best match");
+  const [category, setCategory] = useState("All");
+  const [workMode, setWorkMode] = useState("Any");
+  const [funding, setFunding] = useState("Any");
+  const [deadline, setDeadline] = useState("Any");
+  const [minMatch, setMinMatch] = useState(0);
+  const [sort, setSort] = useState("Best match");
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiAnswer, setAiAnswer] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [filtered, setFiltered] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-  const [aiQuery, setAiQuery] =
-    useState("");
+  // API is the sole source of results, including sorting and filtering.
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      setLoadError("");
+      const categoryKey = category === "All" ? undefined : category.toLowerCase().replace(/\s+/g, "_");
+      const days = { "≤ 14 days": 14, "≤ 30 days": 30, "≤ 60 days": 60 }[deadline];
+      const deadlineBefore = days ? new Date(Date.now() + days * 86400000).toISOString() : undefined;
+      try {
+        const data = await getOpportunities({
+          q: q.trim() || undefined,
+          category: categoryKey,
+          remote: workMode === "Remote" ? true : undefined,
+          funded: funding === "Funded/Paid" ? true : undefined,
+          deadlineBefore,
+          minMatch,
+          sort: { "Best match": "best_match", "Newest": "newest", "Deadline soon": "deadline" }[sort],
+          pageSize: 100,
+        });
+        if (active) {
+          setFiltered(data.items);
+          setTotal(data.total);
+        }
+      } catch (error) {
+        if (active) { setFiltered([]); setTotal(0); setLoadError(error.message || "Search failed."); }
+      } finally { if (active) setLoading(false); }
+    }, 220);
+    return () => { active = false; clearTimeout(timer); };
+  }, [q, category, workMode, funding, deadline, minMatch, sort]);
 
-  const [aiAnswer, setAiAnswer] =
-    useState(null);
-
-  const [discovering, setDiscovering] =
-    useState(false);
-
-  const [phase, setPhase] =
-    useState("");
-
-  const filtered = useMemo(() => {
-    let data = opportunities.filter(
-      (o) => {
-        const hay =
-          `${o.title} ${o.organization} ${o.category} ${o.matchedSkills.join(
-            " "
-          )}`.toLowerCase();
-
-        const matchesQ =
-          !q ||
-          hay.includes(
-            q.toLowerCase()
-          );
-
-        const matchesCategory =
-          category === "All" ||
-          o.category === category;
-
-        const matchesMode =
-          workMode === "Any" ||
-          o.workMode === workMode ||
-          (workMode === "Remote" &&
-            o.remote);
-
-        const matchesFunding =
-          funding === "Any" ||
-          (funding ===
-            "Funded/Paid" &&
-            [
-              "Paid",
-              "Fully funded",
-            ].includes(
-              o.fundingType
-            )) ||
-          o.fundingType === funding;
-
-        const matchesDeadline =
-          deadline === "Any" ||
-          (deadline === "≤ 14 days" &&
-            o.daysRemaining <= 14) ||
-          (deadline === "≤ 30 days" &&
-            o.daysRemaining <= 30) ||
-          (deadline === "≤ 60 days" &&
-            o.daysRemaining <= 60);
-
-        return (
-          matchesQ &&
-          matchesCategory &&
-          matchesMode &&
-          matchesFunding &&
-          matchesDeadline &&
-          o.match >=
-          Number(minMatch)
-        );
-      }
-    );
-
-    if (sort === "Best match") {
-      data = [...data].sort(
-        (a, b) =>
-          b.match - a.match
-      );
-    }
-
-    if (sort === "Newest") {
-      data = [...data].sort(
-        (a, b) =>
-          Number(b.isNew) -
-          Number(a.isNew)
-      );
-    }
-
-    if (sort === "Deadline soon") {
-      data = [...data].sort(
-        (a, b) =>
-          a.daysRemaining -
-          b.daysRemaining
-      );
-    }
-
-    return data;
-  }, [
-    opportunities,
-    q,
-    category,
-    workMode,
-    funding,
-    deadline,
-    minMatch,
-    sort,
-  ]);
-
-  const askOrbit = () => {
-    if (!aiQuery.trim()) return;
-
-    const lower =
-      aiQuery.toLowerCase();
-
-    let result = [
-      ...opportunities,
-    ];
-
-    if (
-      lower.includes("funded") ||
-      lower.includes("paid")
-    ) {
-      result = result.filter((o) =>
-        [
-          "Paid",
-          "Fully funded",
-        ].includes(o.fundingType)
-      );
-    }
-
-    if (lower.includes("ai")) {
-      result = result.filter(
-        (o) =>
-          o.matchedSkills.some(
-            (s) =>
-              [
-                "AI",
-                "Machine Learning",
-                "Python",
-              ].includes(s)
-          ) ||
-          o.title
-            .toLowerCase()
-            .includes("ai")
-      );
-    }
-
-    if (lower.includes("remote")) {
-      result = result.filter(
-        (o) => o.remote
-      );
-    }
-
-    if (
-      lower.includes("hackathon")
-    ) {
-      result = result.filter(
-        (o) =>
-          o.category === "Hackathon"
-      );
-    }
-
-    if (
-      lower.includes("fellowship")
-    ) {
-      result = result.filter(
-        (o) =>
-          o.category ===
-          "Fellowship" ||
-          o.category === "Research"
-      );
-    }
-
-    result = result
-      .sort(
-        (a, b) =>
-          b.match - a.match
-      )
-      .slice(0, 4);
-
-    setAiAnswer({
-      text: `I found ${result.length} strong local-preview matches for that request. In the backend build, Groq will translate this query into validated filters and explain the evidence behind each match.`,
-      results: result,
-    });
-  };
-
-  const liveSearch = () => {
-    if (discovering) return;
-
-    setDiscovering(true);
-    setPhase(
-      "Searching public sources…"
-    );
-
-    setTimeout(() => {
-      setPhase(
-        "Checking candidate pages…"
-      );
-    }, 700);
-
-    setTimeout(() => {
-      setPhase(
-        "Normalizing and deduplicating…"
-      );
-    }, 1400);
-
-    setTimeout(() => {
-      const id =
-        "demo-new-radar";
-
-      if (
-        !opportunities.some(
-          (o) => o.id === id
-        )
-      ) {
-        setOpportunities(
-          (prev) => [
-            {
-              id,
-              title:
-                "Responsible AI Builders Program",
-              organization:
-                "Open Technology Collective",
-              category: "Fellowship",
-              match: 91,
-              deadline:
-                "2026-09-12",
-              daysRemaining: 35,
-              location: "Global",
-              remote: true,
-              workMode: "Remote",
-              funding:
-                "Funded cohort",
-              fundingType:
-                "Fully funded",
-              verified: true,
-              isNew: true,
-              lastChecked:
-                "just now",
-              sourceUrl:
-                "https://example.org/responsible-ai-builders",
-              applicationUrl:
-                "https://example.org/responsible-ai-builders/apply",
-              shortDescription:
-                "A newly discovered remote program for technical students building responsible AI prototypes with mentor support.",
-              description:
-                "A cohort-based technical program focused on practical responsible AI systems.",
-              eligibility: [
-                "Technical student or early-career builder",
-                "Global applications",
-              ],
-              requirements: [
-                "Python or JavaScript",
-                "Short project idea",
-              ],
-              benefits: [
-                "Funded cohort",
-                "Mentorship",
-              ],
-              matchedSkills: [
-                "AI",
-                "Python",
-                "React",
-              ],
-              gaps: [
-                "Prepare a concise project proposal",
-              ],
-            },
-            ...prev,
-          ]
-        );
-      }
-
-      setPhase(
-        "1 new opportunity discovered"
-      );
-
-      setDiscovering(false);
-    }, 2200);
+  const askOrbit = async () => {
+    if (aiLoading || !aiQuery.trim()) return;
+    setAiLoading(true);
+    setAiAnswer(null);
+    setAiError("");
+    try {
+      const data = await askOrbitApi(aiQuery.trim());
+      setAiAnswer({ text: data.answer || "Search completed.", results: data.items });
+    } catch (error) {
+      setAiError(error.message || "Ask Orbit could not complete your search.");
+    } finally { setAiLoading(false); }
   };
 
   return (
@@ -1799,52 +1562,12 @@ function DiscoverPage() {
           <p className="mt-2 text-sm text-slate-500">
             Search the current radar,
             ask Orbit in natural
-            language, or trigger a live
-            discovery preview.
+            language, with results loaded directly from the server.
           </p>
         </div>
 
-        <button
-          onClick={liveSearch}
-          className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
-          disabled={discovering}
-        >
-          {discovering ? (
-            <Loader2
-              size={15}
-              className="animate-spin"
-            />
-          ) : (
-            <Globe2 size={15} />
-          )}
-
-          Search live web
-        </button>
+        <span className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">Live ingestion runs independently through the existing backend pipeline</span>
       </div>
-
-      {phase && (
-        <div
-          className={`mt-5 flex items-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold ${discovering
-            ? "border-blue-100 bg-blue-50 text-blue-800"
-            : "border-emerald-100 bg-emerald-50 text-emerald-800"
-            }`}
-        >
-          {discovering ? (
-            <Loader2
-              size={14}
-              className="animate-spin"
-            />
-          ) : (
-            <CheckCircle2 size={14} />
-          )}
-
-          {phase}
-
-          <span className="ml-auto font-medium opacity-70">
-            Frontend preview
-          </span>
-        </div>
-      )}
 
       <section className="mt-6 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-blue-600">
@@ -1877,10 +1600,12 @@ function DiscoverPage() {
 
           <button
             onClick={askOrbit}
+            disabled={aiLoading}
             className="rounded-2xl bg-blue-600 px-6 py-4 text-sm font-black text-white"
           >
-            Ask Orbit
+            {aiLoading ? "Searching…" : "Ask Orbit"}
           </button>
+          {aiError && <p role="alert" className="text-xs text-red-700">{aiError}</p>}
         </div>
 
         {aiAnswer && (
@@ -2008,12 +1733,11 @@ function DiscoverPage() {
       <div className="mt-6 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-black">
-            {filtered.length} opportunities
+            {total} opportunities
           </h2>
 
           <p className="mt-1 text-xs text-slate-500">
-            Showing results from the
-            current local radar.
+            Showing server results from the current opportunity index.
           </p>
         </div>
 
@@ -2023,8 +1747,10 @@ function DiscoverPage() {
         </div>
       </div>
 
+      {loading && <p className="mt-4 text-sm text-slate-600">Loading opportunities…</p>}
+      {loadError && <p role="alert" className="mt-4 text-sm text-red-700">{loadError}</p>}
       <div className="mt-4 grid gap-3 xl:grid-cols-2">
-        {filtered.map((o) => (
+        {!loading && !loadError && filtered.map((o) => (
           <OpportunityCard
             key={o.id}
             opportunity={o}
@@ -2037,7 +1763,7 @@ function DiscoverPage() {
           />
         ))}
 
-        {filtered.length === 0 && (
+        {!loading && !loadError && filtered.length === 0 && (
           <Empty
             title="No matches in this view"
             text="Relax a filter or search for a different keyword."
