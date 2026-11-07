@@ -1499,10 +1499,13 @@ function DiscoverPage() {
   const [aiError, setAiError] = useState("");
   const [filtered, setFiltered] = useState([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
   // API is the sole source of results, including sorting and filtering.
+  useEffect(() => { setPage(1); }, [q, category, workMode, funding, deadline, minMatch, sort]);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(async () => {
@@ -1520,7 +1523,8 @@ function DiscoverPage() {
           deadlineBefore,
           minMatch,
           sort: { "Best match": "best_match", "Newest": "newest", "Deadline soon": "deadline" }[sort],
-          pageSize: 100,
+          page,
+          pageSize,
         });
         if (active) {
           setFiltered(data.items);
@@ -1531,7 +1535,7 @@ function DiscoverPage() {
       } finally { if (active) setLoading(false); }
     }, 220);
     return () => { active = false; clearTimeout(timer); };
-  }, [q, category, workMode, funding, deadline, minMatch, sort]);
+  }, [q, category, workMode, funding, deadline, minMatch, sort, page]);
 
   const askOrbit = async () => {
     if (aiLoading || !aiQuery.trim()) return;
@@ -1770,6 +1774,23 @@ function DiscoverPage() {
           />
         )}
       </div>
+      {!loading && !loadError && total > pageSize && (
+        <div className="mt-5 flex items-center justify-between gap-3 text-sm">
+          <button
+            type="button"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-bold disabled:opacity-40"
+          >Previous</button>
+          <span>Page {page} of {Math.ceil(total / pageSize)}</span>
+          <button
+            type="button"
+            onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
+            disabled={page >= Math.ceil(total / pageSize)}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-bold disabled:opacity-40"
+          >Next</button>
+        </div>
+      )}
     </ShellRoute>
   );
 }
