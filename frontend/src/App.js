@@ -49,381 +49,28 @@ import MetricCard from "./components/MetricCard";
 import OpportunityCard from "./components/OpportunityCard";
 import OrbitLogo from "./components/OrbitLogo";
 import { apiRequest, fromApiProfile, toApiProfile, clearLegacyAuth } from "./api/client";
+import { getOpportunities, getOpportunity, getSaved, saveOpportunity, unsaveOpportunity, updateSavedStatus, askOrbitApi } from "./api/opportunities";
 
 const OrbitContext = createContext(null);
 
 const useOrbit = () => useContext(OrbitContext);
-
-const opportunitySeed = [
-  {
-    id: "gsoc-2027",
-    title: "Google Summer of Code 2027",
-    organization: "Google Open Source",
-    category: "Open Source",
-    match: 96,
-    deadline: "2027-03-31",
-    daysRemaining: 235,
-    location: "Global",
-    remote: true,
-    workMode: "Remote",
-    funding: "Paid stipend",
-    fundingType: "Paid",
-    verified: true,
-    isNew: false,
-    lastChecked: "9 min ago",
-    sourceUrl: "https://summerofcode.withgoogle.com/",
-    applicationUrl: "https://summerofcode.withgoogle.com/",
-    shortDescription:
-      "A global open-source program connecting contributors with established organizations for a mentored software project.",
-    description:
-      "Google Summer of Code is a global program focused on bringing new contributors into open-source software development. Contributors work with participating organizations under experienced mentors.",
-    eligibility: [
-      "Open to eligible contributors worldwide",
-      "Must satisfy the program's contributor eligibility rules",
-      "Availability for the full coding period",
-    ],
-    requirements: [
-      "Interest in open source",
-      "Ability to work with a mentor and community",
-      "Project proposal for a participating organization",
-    ],
-    benefits: [
-      "Paid stipend",
-      "Real open-source contribution experience",
-      "Mentorship from established communities",
-    ],
-    matchedSkills: ["Python", "Open Source", "Git"],
-    gaps: ["Add 1–2 public open-source contributions before applying"],
-  },
-  {
-    id: "mlh-fellowship",
-    title: "MLH Fellowship — Software Engineering",
-    organization: "Major League Hacking",
-    category: "Fellowship",
-    match: 94,
-    deadline: "2026-09-01",
-    daysRemaining: 24,
-    location: "Global",
-    remote: true,
-    workMode: "Remote",
-    funding: "Stipend available",
-    fundingType: "Paid",
-    verified: true,
-    isNew: true,
-    lastChecked: "12 min ago",
-    sourceUrl: "https://fellowship.mlh.io/",
-    applicationUrl: "https://fellowship.mlh.io/",
-    shortDescription:
-      "A remote, mentor-led program where developers collaborate on real-world projects and strengthen production engineering skills.",
-    description:
-      "The MLH Fellowship is a remote program designed to give developers practical experience through structured, mentor-supported project work.",
-    eligibility: [
-      "Developer or technical student profile",
-      "Can participate remotely",
-      "Availability during the program",
-    ],
-    requirements: [
-      "Programming foundations",
-      "Collaborative communication",
-      "Portfolio or examples of technical work",
-    ],
-    benefits: ["Mentorship", "Peer community", "Project experience"],
-    matchedSkills: ["React", "Python", "Open Source"],
-    gaps: ["Portfolio links would strengthen your application"],
-  },
-  {
-    id: "global-ai-research",
-    title: "Global AI Research Fellowship 2026",
-    organization: "Future Systems Lab",
-    category: "Research",
-    match: 92,
-    deadline: "2026-08-29",
-    daysRemaining: 21,
-    location: "Remote / Global",
-    remote: true,
-    workMode: "Remote",
-    funding: "Fully funded",
-    fundingType: "Fully funded",
-    verified: true,
-    isNew: true,
-    lastChecked: "8 min ago",
-    sourceUrl: "https://example.org/future-systems-lab",
-    applicationUrl: "https://example.org/apply/future-systems-lab",
-    shortDescription:
-      "A remote research fellowship for undergraduate and early-career builders exploring practical AI systems and responsible deployment.",
-    description:
-      "A structured research fellowship focused on applied artificial intelligence, experimentation, technical communication, and mentor-guided project work.",
-    eligibility: [
-      "Undergraduate or early-career applicant",
-      "International applicants accepted",
-      "Computer science or related technical field",
-    ],
-    requirements: [
-      "Python fundamentals",
-      "Interest in AI research",
-      "Short technical statement",
-    ],
-    benefits: [
-      "Fully funded participation",
-      "Research mentorship",
-      "Final project showcase",
-    ],
-    matchedSkills: ["Python", "AI", "Machine Learning"],
-    gaps: ["Research writing sample recommended"],
-  },
-  {
-    id: "devpost-climate",
-    title: "Build for Climate Hackathon",
-    organization: "Open Impact Network",
-    category: "Hackathon",
-    match: 89,
-    deadline: "2026-08-18",
-    daysRemaining: 10,
-    location: "Online",
-    remote: true,
-    workMode: "Remote",
-    funding: "$10K prize pool",
-    fundingType: "Prize",
-    verified: true,
-    isNew: true,
-    lastChecked: "16 min ago",
-    sourceUrl: "https://devpost.com/",
-    applicationUrl: "https://devpost.com/",
-    shortDescription:
-      "A fast-moving online hackathon for software and AI prototypes that address climate, energy, mobility, or resilience problems.",
-    description:
-      "Teams build and ship a working climate-focused product during a time-boxed online hackathon with technical and impact judging.",
-    eligibility: [
-      "Open online participation",
-      "Team or solo entry",
-      "Public project demo required",
-    ],
-    requirements: [
-      "Working software project",
-      "Public demo",
-      "Short submission description",
-    ],
-    benefits: ["Prize pool", "Public showcase", "Mentor feedback"],
-    matchedSkills: ["React", "AI", "Python"],
-    gaps: ["Add a climate-specific problem statement"],
-  },
-  {
-    id: "europe-tech-scholarship",
-    title: "Emerging Technologists Scholarship",
-    organization: "European Digital Foundation",
-    category: "Scholarship",
-    match: 86,
-    deadline: "2026-10-15",
-    daysRemaining: 68,
-    location: "Europe",
-    remote: false,
-    workMode: "On-site",
-    funding: "Tuition support",
-    fundingType: "Fully funded",
-    verified: true,
-    isNew: false,
-    lastChecked: "32 min ago",
-    sourceUrl: "https://example.org/edf-scholarship",
-    applicationUrl: "https://example.org/edf-scholarship/apply",
-    shortDescription:
-      "A scholarship supporting high-potential computing students pursuing advanced technical study and community impact.",
-    description:
-      "A scholarship program for students in computing-related disciplines with a focus on academic promise, community contribution, and technology leadership.",
-    eligibility: [
-      "Computing-related field",
-      "Academic enrollment required",
-      "International route available for selected institutions",
-    ],
-    requirements: [
-      "Academic transcript",
-      "Personal statement",
-      "One reference",
-    ],
-    benefits: [
-      "Tuition support",
-      "Mentor network",
-      "Community events",
-    ],
-    matchedSkills: ["Computer Science", "AI"],
-    gaps: ["Check institution eligibility before applying"],
-  },
-  {
-    id: "remote-frontend-intern",
-    title: "Frontend Engineering Internship",
-    organization: "Nova Labs",
-    category: "Internship",
-    match: 84,
-    deadline: "2026-08-26",
-    daysRemaining: 18,
-    location: "Remote",
-    remote: true,
-    workMode: "Remote",
-    funding: "Paid",
-    fundingType: "Paid",
-    verified: true,
-    isNew: true,
-    lastChecked: "20 min ago",
-    sourceUrl: "https://example.org/nova-labs-careers",
-    applicationUrl:
-      "https://example.org/nova-labs-careers/frontend-intern",
-    shortDescription:
-      "A remote product engineering internship focused on React interfaces, accessibility, experimentation, and shipping user-facing features.",
-    description:
-      "A product-focused frontend internship where interns contribute to a React application with guidance from senior engineers and designers.",
-    eligibility: [
-      "Student or recent graduate",
-      "Remote availability",
-      "Portfolio or project experience",
-    ],
-    requirements: ["React", "JavaScript", "Git"],
-    benefits: [
-      "Paid internship",
-      "Mentorship",
-      "Production experience",
-    ],
-    matchedSkills: ["React", "JavaScript", "UI/UX"],
-    gaps: ["Add one polished public React project"],
-  },
-  {
-    id: "open-data-challenge",
-    title: "Global Open Data Challenge",
-    organization: "Civic Data Alliance",
-    category: "Competition",
-    match: 81,
-    deadline: "2026-09-20",
-    daysRemaining: 43,
-    location: "Global",
-    remote: true,
-    workMode: "Remote",
-    funding: "$5K awards",
-    fundingType: "Prize",
-    verified: false,
-    isNew: false,
-    lastChecked: "1 hr ago",
-    sourceUrl: "https://example.org/open-data-challenge",
-    applicationUrl: "https://example.org/open-data-challenge",
-    shortDescription:
-      "A public-data competition for teams building useful visualizations, civic tools, and applied analytics from open datasets.",
-    description:
-      "A global challenge inviting participants to turn public datasets into meaningful applications, visualizations, or research prototypes.",
-    eligibility: [
-      "Global participation",
-      "Public submission",
-      "Use of open datasets",
-    ],
-    requirements: [
-      "Working prototype",
-      "Public repository",
-      "Short impact note",
-    ],
-    benefits: [
-      "Awards",
-      "Public recognition",
-      "Community feedback",
-    ],
-    matchedSkills: ["Python", "Data Science"],
-    gaps: ["Data visualization experience would improve fit"],
-  },
-  {
-    id: "linux-mentorship",
-    title: "Open Source Mentorship Program",
-    organization: "Linux Ecosystem Initiative",
-    category: "Open Source",
-    match: 78,
-    deadline: "2026-11-05",
-    daysRemaining: 89,
-    location: "Global",
-    remote: true,
-    workMode: "Remote",
-    funding: "Stipend varies",
-    fundingType: "Paid",
-    verified: true,
-    isNew: false,
-    lastChecked: "44 min ago",
-    sourceUrl: "https://example.org/linux-mentorship",
-    applicationUrl:
-      "https://example.org/linux-mentorship/apply",
-    shortDescription:
-      "Mentored contributions to open-source infrastructure projects with structured technical guidance and community review.",
-    description:
-      "A mentorship pathway for developers who want to contribute to open-source infrastructure and learn community development workflows.",
-    eligibility: [
-      "Global applicants",
-      "Basic development experience",
-      "Can contribute asynchronously",
-    ],
-    requirements: [
-      "Git",
-      "Programming fundamentals",
-      "Interest in systems or infrastructure",
-    ],
-    benefits: [
-      "Mentorship",
-      "Open-source portfolio",
-      "Community network",
-    ],
-    matchedSkills: ["Open Source", "Git"],
-    gaps: ["Linux systems experience would improve your match"],
-  },
-];
-
-const initialRuns = [
-  {
-    id: 1,
-    started: "Today · 02:00",
-    status: "Success",
-    sources: 12,
-    urls: 73,
-    newCount: 6,
-    updated: 4,
-    expired: 1,
-    aiCalls: 8,
-  },
-  {
-    id: 2,
-    started: "Yesterday · 02:00",
-    status: "Success",
-    sources: 12,
-    urls: 61,
-    newCount: 4,
-    updated: 2,
-    expired: 3,
-    aiCalls: 6,
-  },
-  {
-    id: 3,
-    started: "Aug 6 · 02:00",
-    status: "Partial",
-    sources: 12,
-    urls: 58,
-    newCount: 5,
-    updated: 1,
-    expired: 0,
-    aiCalls: 7,
-  },
-];
 
 const defaultProfile = {
   fullName: "", country: "", education: "", field: "", graduationYear: "",
   skills: [], interests: [], workMode: "Any", preferredRegions: [], fundingPreference: "Any funding",
 };
 
-function readJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function OrbitProvider({ children }) {
   const [auth, setAuth] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [profile, setProfileState] = useState(defaultProfile);
-  // Phase 3 replaces local opportunity and saved workflows.
-  const [opportunities, setOpportunities] = useState(opportunitySeed);
+  const [opportunities, setOpportunities] = useState([]);
+  const [opportunitiesLoading, setOpportunitiesLoading] = useState(true);
+  const [opportunitiesError, setOpportunitiesError] = useState("");
+  const [stats, setStats] = useState({ recommended: 0, closingSoon: 0, newToday: 0, saved: 0, totalActive: 0 });
   const [saved, setSaved] = useState({});
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [savedError, setSavedError] = useState("");
   const [runs, setRuns] = useState([]);
 
   useEffect(() => {
@@ -456,6 +103,36 @@ function OrbitProvider({ children }) {
       window.removeEventListener("orbit:session-expired", expire);
     };
   }, []);
+
+  // Read-only data flow: never starts ingestion or changes existing backend pipelines.
+  useEffect(() => {
+    let active = true;
+    if (!auth) {
+      setOpportunities([]);
+      setSaved({});
+      setOpportunitiesLoading(false);
+      setSavedLoading(false);
+      return () => { active = false; };
+    }
+    setOpportunitiesLoading(true);
+    setSavedLoading(true);
+    setOpportunitiesError("");
+    setSavedError("");
+    getOpportunities({ pageSize: 100 }).then(result => {
+      if (active) setOpportunities(result.items);
+    }).catch(error => {
+      if (active) setOpportunitiesError(error.message || "Unable to load opportunities.");
+    }).finally(() => { if (active) setOpportunitiesLoading(false); });
+    getSaved().then(rows => {
+      if (active) setSaved(Object.fromEntries(rows.map(row => [row.originalOpportunityId, row])));
+    }).catch(error => {
+      if (active) setSavedError(error.message || "Unable to load saved opportunities.");
+    }).finally(() => { if (active) setSavedLoading(false); });
+    apiRequest("/api/stats").then(data => {
+      if (active) setStats(data);
+    }).catch(() => { /* Stats failures never invent numbers. */ });
+    return () => { active = false; };
+  }, [auth, profile]);
 
   const login = async ({ email, password, fullName, isRegister }) => {
     const response = await apiRequest(isRegister ? "/api/auth/register" : "/api/auth/login", {
@@ -491,48 +168,37 @@ function OrbitProvider({ children }) {
     return updated;
   };
 
-  const toggleSave = (opp) => {
-    setSaved((current) => {
-      const next = { ...current };
-
-      if (next[opp.id]) {
-        delete next[opp.id];
+  const toggleSave = async (opp) => {
+    setSavedError("");
+    try {
+      if (saved[opp.id]) {
+        await unsaveOpportunity(opp.id);
+        setSaved(current => {
+          const next = { ...current };
+          delete next[opp.id];
+          return next;
+        });
       } else {
-        next[opp.id] = {
-          status: "saved",
-          savedAt: new Date().toISOString(),
-          snapshot: opp,
-        };
+        const row = await saveOpportunity(opp.id);
+        setSaved(current => ({ ...current, [opp.id]: row }));
       }
-
-      localStorage.setItem(
-        "orbit_saved",
-        JSON.stringify(next)
-      );
-
-      return next;
-    });
+    } catch (error) {
+      setSavedError(error.message || "Unable to change saved opportunity.");
+      throw error;
+    }
   };
 
-  const setSavedStatus = (id, status) => {
-    setSaved((current) => {
-      if (!current[id]) return current;
-
-      const next = {
-        ...current,
-        [id]: {
-          ...current[id],
-          status,
-        },
-      };
-
-      localStorage.setItem(
-        "orbit_saved",
-        JSON.stringify(next)
-      );
-
-      return next;
-    });
+  const setSavedStatus = async (id, status) => {
+    const row = saved[id];
+    if (!row || !["saved", "planning", "applied"].includes(status)) return;
+    setSavedError("");
+    try {
+      const updated = await updateSavedStatus(row.id, status);
+      setSaved(current => ({ ...current, [id]: updated }));
+    } catch (error) {
+      setSavedError(error.message || "Unable to update application status.");
+      throw error;
+    }
   };
 
   const addRun = (run) => {
@@ -559,7 +225,12 @@ function OrbitProvider({ children }) {
         saveProfile,
         opportunities,
         setOpportunities,
+        opportunitiesLoading,
+        opportunitiesError,
+        stats,
         saved,
+        savedLoading,
+        savedError,
         toggleSave,
         setSavedStatus,
         runs,
