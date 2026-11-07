@@ -2247,6 +2247,8 @@ function SavedPage() {
     saved,
     toggleSave,
     setSavedStatus,
+    savedLoading,
+    savedError,
   } = useOrbit();
 
   const [tab, setTab] =
@@ -2255,7 +2257,7 @@ function SavedPage() {
   const records = Object.values(
     saved
   ).filter(
-    (r) => r.status === tab
+    (r) => tab === "expired" ? r.expired : (!r.expired && r.status === tab)
   );
 
   const tabs = [
@@ -2314,8 +2316,10 @@ function SavedPage() {
         )}
       </div>
 
+      {savedLoading && <p className="mt-4 text-sm text-slate-600">Loading your saved opportunities…</p>}
+      {savedError && <p role="alert" className="mt-4 text-sm text-red-700">{savedError}</p>}
       <div className="mt-5 grid gap-4 xl:grid-cols-2">
-        {records.map((r) => (
+        {!savedLoading && !savedError && records.map((r) => (
           <div
             key={r.snapshot.id}
             className="space-y-2"
@@ -2364,23 +2368,12 @@ function SavedPage() {
                     </button>
                   )}
 
-                <button
-                  onClick={() =>
-                    setSavedStatus(
-                      r.snapshot.id,
-                      "expired"
-                    )
-                  }
-                  className="rounded-lg px-3 py-2 text-[11px] font-bold text-slate-400 hover:bg-slate-50"
-                >
-                  Archive
-                </button>
               </div>
             )}
           </div>
         ))}
 
-        {records.length === 0 && (
+        {!savedLoading && !savedError && records.length === 0 && (
           <Empty
             title={`No ${tabs
               .find(
@@ -2398,396 +2391,21 @@ function SavedPage() {
 }
 
 function IngestionPage() {
-  const {
-    runs,
-    addRun,
-    opportunities,
-    setOpportunities,
-  } = useOrbit();
-
-  const [running, setRunning] =
-    useState(false);
-
-  const [progress, setProgress] =
-    useState(0);
-
-  const [message, setMessage] =
-    useState("");
-
-  const latest = runs[0];
-
-  const runNow = () => {
-    if (running) return;
-
-    setRunning(true);
-    setProgress(12);
-    setMessage(
-      "Loading source registry…"
-    );
-
-    const steps = [
-      [
-        500,
-        30,
-        "Discovering RSS, sitemap and listing URLs…",
-      ],
-      [
-        1100,
-        54,
-        "Fetching new and changed candidate pages…",
-      ],
-      [
-        1700,
-        76,
-        "Normalizing, deduplicating and scoring…",
-      ],
-      [
-        2300,
-        94,
-        "Expiring stale records and saving run metrics…",
-      ],
-    ];
-
-    steps.forEach(
-      ([ms, p, m]) =>
-        setTimeout(() => {
-          setProgress(p);
-          setMessage(m);
-        }, ms)
-    );
-
-    setTimeout(() => {
-      const run = {
-        id: Date.now(),
-        started: "Just now",
-        status: "Success",
-        sources: 14,
-        urls: 86,
-        newCount: 7,
-        updated: 3,
-        expired: 2,
-        aiCalls: 9,
-      };
-
-      addRun(run);
-
-      if (
-        !opportunities.some(
-          (o) =>
-            o.id ===
-            "radar-status-demo"
-        )
-      ) {
-        setOpportunities(
-          (prev) => [
-            {
-              ...opportunitySeed[2],
-              id: "radar-status-demo",
-              title:
-                "Applied AI Student Fellowship",
-              organization:
-                "Open Research Collective",
-              match: 93,
-              isNew: true,
-              lastChecked:
-                "just now",
-            },
-            ...prev,
-          ]
-        );
-      }
-
-      setProgress(100);
-
-      setMessage(
-        "Discovery completed — 7 new opportunities normalized."
-      );
-
-      setRunning(false);
-    }, 3000);
-  };
-
-  const sources = [
-    {
-      name:
-        "Official program feeds",
-      type: "RSS / listing",
-      status: "Healthy",
-      last: "8 min ago",
-    },
-    {
-      name:
-        "Public opportunity sitemaps",
-      type: "Sitemap",
-      status: "Healthy",
-      last: "9 min ago",
-    },
-    {
-      name:
-        "University opportunity pages",
-      type: "HTTP",
-      status: "Healthy",
-      last: "10 min ago",
-    },
-    {
-      name:
-        "Optional SearXNG discovery",
-      type: "Search",
-      status: "Not configured",
-      last: "—",
-    },
-  ];
-
   return (
     <ShellRoute>
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-        <div>
-          <div className="text-xs font-bold uppercase tracking-[0.15em] text-blue-600">
-            Radar Status
-          </div>
-
-          <h1 className="mt-2 text-3xl font-black tracking-tight">
-            Discovery engine visibility.
-          </h1>
-
-          <p className="mt-2 text-sm text-slate-500">
-            A judge-friendly view of
-            what the recurring opportunity
-            pipeline is doing.
-          </p>
-        </div>
-
-        <button
-          onClick={runNow}
-          disabled={running}
-          className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
-        >
-          {running ? (
-            <Loader2
-              size={15}
-              className="animate-spin"
-            />
-          ) : (
-            <Play size={15} />
-          )}
-
-          Run Discovery now
-        </button>
-      </div>
-
-      <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        <strong>
-          Frontend preview:
-        </strong>{" "}
-        these controls simulate the
-        final interaction. Once FastAPI
-        is connected, every metric and
-        run row must come from real
-        ingestion records.
-      </div>
-
-      {(running || message) && (
-        <div className="mt-4 rounded-2xl border border-blue-100 bg-white p-4">
-          <div className="flex items-center justify-between text-xs font-bold">
-            <span>{message}</span>
-            <span>{progress}%</span>
-          </div>
-
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-blue-600 transition-all"
-              style={{
-                width: `${progress}%`,
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          label="Sources scanned"
-          value={
-            latest?.sources || 0
-          }
-          hint="Latest discovery run"
-          icon={Globe2}
-          tone="slate"
-        />
-
-        <MetricCard
-          label="URLs discovered"
-          value={latest?.urls || 0}
-          hint="Candidate pages"
-          icon={Search}
-          tone="white"
-        />
-
-        <MetricCard
-          label="New opportunities"
-          value={
-            latest?.newCount || 0
-          }
-          hint="Normalized records"
-          icon={Zap}
-          tone="blue"
-        />
-
-        <MetricCard
-          label="Expired"
-          value={
-            latest?.expired || 0
-          }
-          hint="Removed from active feed"
-          icon={Clock3}
-          tone="white"
-        />
-      </section>
-
-      <section className="mt-6 grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-black">
-                Recent runs
-              </h2>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Cron and manual
-                ingestion history.
-              </p>
-            </div>
-
-            <RefreshCw
-              size={16}
-              className="text-slate-400"
-            />
-          </div>
-
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                  <th className="pb-3">
-                    Started
-                  </th>
-
-                  <th className="pb-3">
-                    Status
-                  </th>
-
-                  <th className="pb-3">
-                    URLs
-                  </th>
-
-                  <th className="pb-3">
-                    New
-                  </th>
-
-                  <th className="pb-3">
-                    Updated
-                  </th>
-
-                  <th className="pb-3">
-                    AI calls
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {runs.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="border-b border-slate-50"
-                  >
-                    <td className="py-4 font-bold">
-                      {r.started}
-                    </td>
-
-                    <td>
-                      <span
-                        className={`rounded-full px-2 py-1 text-[10px] font-black ${r.status ===
-                          "Success"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-amber-50 text-amber-700"
-                          }`}
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-
-                    <td>{r.urls}</td>
-
-                    <td>
-                      {r.newCount}
-                    </td>
-
-                    <td>
-                      {r.updated}
-                    </td>
-
-                    <td>
-                      {r.aiCalls}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5">
-          <div>
-            <h2 className="text-lg font-black">
-              Source health
-            </h2>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Primary discovery
-              adapters and optional
-              search layer.
-            </p>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            {sources.map((s) => (
-              <div
-                key={s.name}
-                className="flex items-center gap-3 rounded-2xl border border-slate-100 p-4"
-              >
-                <div
-                  className={`grid h-9 w-9 place-items-center rounded-xl ${s.status ===
-                    "Healthy"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-slate-100 text-slate-500"
-                    }`}
-                >
-                  <Database size={16} />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs font-black">
-                    {s.name}
-                  </div>
-
-                  <div className="mt-1 text-[10px] text-slate-400">
-                    {s.type} · {s.last}
-                  </div>
-                </div>
-
-                <div
-                  className={`text-[10px] font-black ${s.status ===
-                    "Healthy"
-                    ? "text-emerald-700"
-                    : "text-slate-400"
-                    }`}
-                >
-                  {s.status}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <section className="rounded-[24px] border border-slate-200 bg-white p-8">
+        <div className="text-xs font-black uppercase tracking-wide text-blue-600">Radar status</div>
+        <h1 className="mt-3 text-2xl font-black text-slate-950">Discovery and content pipeline</h1>
+        <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
+          The existing backend discovery and content-delivery pipeline is preserved.
+          Phase 3 only connects read/search/save experiences to real backend data.
+          Live ingestion controls and run diagnostics are reserved for Phase 4.
+        </p>
+        <p className="mt-3 text-sm text-slate-600">
+          No simulated discovery counts or generated opportunities are displayed here.
+          Pipeline operation should be checked through backend monitoring.
+        </p>
+        <Link to="/discover" className="mt-6 inline-flex rounded-xl bg-slate-950 px-4 py-3 text-xs font-bold text-white">Explore indexed opportunities</Link>
       </section>
     </ShellRoute>
   );
