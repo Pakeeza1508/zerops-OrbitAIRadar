@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.auth.debs import get_current_user
+from app.auth.debs import get_admin_user, get_current_user
 from app.models.user import User
 from app.schemas.opportunities import AIQueryRequest, LiveSearchRequest, OpportunitySearchFilters
 from app.services.ai.groq_client import groq_client
@@ -70,7 +70,7 @@ async def ai_search(payload: AIQueryRequest, user: User = Depends(get_current_us
 
 
 @router.post("/live")
-async def live_search(payload: LiveSearchRequest, user: User = Depends(get_current_user)):
+async def live_search(payload: LiveSearchRequest, user: User = Depends(get_admin_user)):
     run = await run_ingestion(
         trigger="manual",
         query=payload.query or None,
