@@ -71,7 +71,6 @@ function OrbitProvider({ children }) {
   const [saved, setSaved] = useState({});
   const [savedLoading, setSavedLoading] = useState(true);
   const [savedError, setSavedError] = useState("");
-  const [runs, setRuns] = useState([]);
 
   useEffect(() => {
     let active = true;
@@ -157,7 +156,6 @@ function OrbitProvider({ children }) {
     clearLegacyAuth();
     setProfileState(defaultProfile);
     setSaved({});
-    setRuns([]);
     setAuth(false);
   };
 
@@ -201,19 +199,6 @@ function OrbitProvider({ children }) {
     }
   };
 
-  const addRun = (run) => {
-    setRuns((current) => {
-      const next = [run, ...current].slice(0, 8);
-
-      localStorage.setItem(
-        "orbit_runs",
-        JSON.stringify(next)
-      );
-
-      return next;
-    });
-  };
-
   return (
     <OrbitContext.Provider
       value={{
@@ -233,8 +218,6 @@ function OrbitProvider({ children }) {
         savedError,
         toggleSave,
         setSavedStatus,
-        runs,
-        addRun,
       }}
     >
       {children}
@@ -2412,22 +2395,160 @@ function SavedPage() {
 }
 
 function IngestionPage() {
+  const { auth, authLoading } = useOrbit();
+  const [runs, setRuns] = useState([]);
+  const [sources, setSources] = useState([]);
+  const [canRunManual, setCanRunManual] = useState(false);
+  const [selectedRun, setSelectedRun] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const loadRadar = async () => {
+    const [runData, sourceData, capability] = await Promise.all([
+      apiRequest("/api/ingestion/runs?limit=100"),
+      apiRequest("/api/ingestion/sources"),
+      apiRequest("/api/ingestion/capabilities"),
+    ]);
+    setRuns(Array.isArray(runData.items) ? runData.items : []);
+    setSources(Array.isArray(sourceData.items) ? sourceData.items : []);
+    setCanRunManual(capability.canRunManual === true);
+  };
+
+  useEffect(() => {
+    if (!auth || authLoading) return;
+    let active = true;
+    setLoading(true);
+    setError("");
+    Promise.all([
+      apiRequest("/api/ingestion/runs?limit=100"),
+      apiRequest("/api/ingestion/sources"),
+      apiRequest("/api/ingestion/capabilities"),
+    ]).then(([runData, sourceData, capability]) => {
+      if (!active) return;
+      setRuns(Array.isArray(runData.items) ? runData.items : []);
+      setSources(Array.isArray(sourceData.items) ? sourceData.items : []);
+      setCanRunManual(capability.canRunManual === true);
+    }).catch(err => {
+      if (active) setError(err.message || "Radar data is unavailable.");
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [auth, authLoading]);
+
+  const inspectRun = async (id) => {
+    setRunError("");
+    try {
+      const data = await apiRequest(`/api/ingestion/runs/${encodeURIComponent(id)}`);
+      setSelectedRun(data);
+    } catch (err) { setRunError(err.message || "Could not load run details."); }
+  };
+
+  const runNow = async () => {
+    if (!canRunManual || running) return;
+    setRunning(true);
+    setRunError("");
+    setNotice("");
+    try {
+      const data = await apiRequest("/api/ingestion/run", { method: "POST", body: { maxCandidates: 30 } });
+      setNotice(`Discovery submitted (run ${data.id}). Refresh for its latest status.`);
+      await loadRadar();
+    } catch (err) {
+      setRunError(err.message || "Could not start discovery.");
+    } finally { setRunning(false); }
+  };
+
+  const formatWhen = (value) => {
+    if (!value) return "Never";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
+  };
+  const sourceHealth = (source) => {
+    if (!source.enabled) return "Disabled";
+    if (source.lastError || Number(source.consecutiveFailures || 0) > 0) return "Error";
+    if (source.lastSuccessAt) return "Healthy";
+    return "Not checked";
+  };
+  const newest = runs[0];
   return (
     <ShellRoute>
-      <section className="rounded-[24px] border border-slate-200 bg-white p-8">
-        <div className="text-xs font-black uppercase tracking-wide text-blue-600">Radar status</div>
-        <h1 className="mt-3 text-2xl font-black text-slate-950">Discovery and content pipeline</h1>
-        <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-          The existing backend discovery and content-delivery pipeline is preserved.
-          Phase 3 only connects read/search/save experiences to real backend data.
-          Live ingestion controls and run diagnostics are reserved for Phase 4.
-        </p>
-        <p className="mt-3 text-sm text-slate-600">
-          No simulated discovery counts or generated opportunities are displayed here.
-          Pipeline operation should be checked through backend monitoring.
-        </p>
-        <Link to="/discover" className="mt-6 inline-flex rounded-xl bg-slate-950 px-4 py-3 text-xs font-bold text-white">Explore indexed opportunities</Link>
-      </section>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[.15em] text-blue-600">Radar status</div>
+          <h1 className="mt-2 text-3xl font-black">Discovery pipeline activity</h1>
+          <p className="mt-2 text-sm text-slate-500">Run history and source status from the backend, not simulated values.</p>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => { setLoading(true); setError(""); loadRadar().catch(err => setError(err.message || "Refresh failed.")).finally(() => setLoading(false)); }}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold">Refresh</button>
+          {canRunManual && <button type="button" onClick={runNow} disabled={running}
+            className="rounded-xl bg-slate-950 px-4 py-3 text-xs font-bold text-white disabled:opacity-50">
+            {running ? "Starting…" : "Run Discovery now"}
+          </button>}
+        </div>
+      </div>
+      {!canRunManual && !loading && !error && <p className="mt-4 text-xs text-slate-500">Manual discovery is restricted to administrators.</p>}
+      {loading && <p role="status" className="mt-5 text-sm text-slate-600">Loading radar activity…</p>}
+      {error && <p role="alert" className="mt-5 text-sm text-red-700">{error}</p>}
+      {runError && <p role="alert" className="mt-5 text-sm text-red-700">{runError}</p>}
+      {notice && <p role="status" className="mt-5 text-sm text-slate-600">{notice}</p>}
+      {!loading && !error && (
+        <>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard label="Sources checked" value={newest?.sourcesAttempted ?? 0} hint="Latest run" icon={Globe2} tone="slate" />
+            <MetricCard label="New opportunities" value={newest?.newCount ?? 0} hint="Latest run" icon={Zap} tone="blue" />
+            <MetricCard label="Updated opportunities" value={newest?.updatedCount ?? 0} hint="Latest run" icon={RefreshCw} tone="amber" />
+            <MetricCard label="Run status" value={newest?.status || "No runs"} hint={newest ? formatWhen(newest.startedAt) : "No run recorded"} icon={Database} tone="white" />
+          </div>
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+            <h2 className="font-bold text-lg">Run history</h2>
+            {runs.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">No ingestion runs recorded yet.</p>
+            ) : (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead><tr className="border-b text-slate-500"><th className="py-2">Started</th><th>Status</th><th>Sources</th><th>New</th><th>Updated</th><th>Failed</th><th>Details</th></tr></thead>
+                  <tbody>{runs.map(run => (
+                    <tr key={run.id} className="border-b border-slate-100">
+                      <td className="py-3">{formatWhen(run.startedAt)}</td>
+                      <td>{run.status || "Unknown"}</td>
+                      <td>{run.sourcesAttempted ?? 0}</td>
+                      <td>{run.newCount ?? 0}</td>
+                      <td>{run.updatedCount ?? 0}</td>
+                      <td>{run.failedCount ?? 0}</td>
+                      <td><button type="button" onClick={() => inspectRun(run.id)} className="text-blue-700 underline">View run</button></td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </section>
+          {selectedRun && (
+            <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
+              <h2 className="text-lg font-bold">Run details</h2>
+              <p className="mt-2 text-sm">Status: {selectedRun.status} · Discovered: {selectedRun.urlsDiscovered ?? 0} · Fetched: {selectedRun.urlsFetched ?? 0} · Finished: {formatWhen(selectedRun.finishedAt)}</p>
+              {Array.isArray(selectedRun.errors) && selectedRun.errors.length > 0 &&
+                <ul className="mt-3 list-disc pl-5 text-sm text-red-700">{selectedRun.errors.map((msg, index) => <li key={index}>{msg}</li>)}</ul>}
+            </section>
+          )}
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+            <h2 className="text-lg font-bold">Sources</h2>
+            {sources.length === 0 ? <p className="mt-3 text-sm text-slate-500">No discovery sources configured.</p> : (
+              <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm">
+                <thead><tr className="border-b text-slate-500"><th className="py-2">Source</th><th>Health</th><th>Last checked</th><th>Last success</th><th>Failures</th></tr></thead>
+                <tbody>{sources.map(source => <tr key={source.id} className="border-b border-slate-100">
+                  <td className="py-3">{source.name}</td>
+                  <td>{sourceHealth(source)}</td>
+                  <td>{formatWhen(source.lastRunAt)}</td>
+                  <td>{formatWhen(source.lastSuccessAt)}</td>
+                  <td>{source.consecutiveFailures ?? 0}</td>
+                </tr>)}</tbody>
+              </table></div>
+            )}
+          </section>
+        </>
+      )}
     </ShellRoute>
   );
 }
