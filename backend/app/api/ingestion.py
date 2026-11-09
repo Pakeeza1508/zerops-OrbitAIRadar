@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
-from app.auth.debs import client_key, get_current_user, rate_limit
+from app.auth.debs import client_key, get_admin_user, get_current_user, rate_limit
 from app.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -12,6 +12,13 @@ from app.services.sources import seed_default_sources
 from app.utils.mongo import object_id, serialize
 
 router = APIRouter(prefix="/ingestion", tags=["ingestion"])
+
+
+@router.get("/capabilities")
+async def ingestion_capabilities(user: User = Depends(get_current_user)):
+    """Expose the effective admin permission without changing authentication."""
+    allowed = bool(user.isAdmin or (settings.admin_email and user.email.lower() == settings.admin_email))
+    return {"canRunManual": allowed}
 
 
 @router.get("/runs")
@@ -40,10 +47,8 @@ async def start_run(
     payload: IngestionRequest,
     background_tasks: BackgroundTasks,
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
-    if not settings.allow_user_manual_ingestion and not user.isAdmin:
-        raise HTTPException(status_code=403, detail="Manual discovery is restricted")
     rate_limit(
         client_key(request, f"ingestion:{user.id}"),
         1,
