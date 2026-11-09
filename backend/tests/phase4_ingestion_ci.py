@@ -3,7 +3,12 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
+from pathlib import Path
 from datetime import datetime, timezone
+
+# Running from frontend/e2e keeps backend imports explicit and isolated.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from unittest.mock import patch
 from bson import ObjectId
 from httpx import ASGITransport, AsyncClient
