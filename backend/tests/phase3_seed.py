@@ -6,7 +6,7 @@ from pymongo import MongoClient
 
 uri = os.getenv("MONGO_URL", "")
 db_name = os.getenv("DB_NAME", "")
-if not (uri.startswith("mongodb://127.0.0.1:27017") and db_name == "orbit_phase3_ci"):
+if not (uri.startswith("mongodb://127.0.0.1:27017") and db_name in {"orbit_phase3_ci", "orbit_phase4_ci"}):
     raise SystemExit("REFUSING to seed a database outside the isolated CI MongoDB service")
 client = MongoClient(uri, serverSelectionTimeoutMS=5000)
 db = client[db_name]
