@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import socket
 import sys
 from pathlib import Path
 from datetime import datetime, timezone
@@ -48,6 +49,12 @@ async def fake_fetch(url, *args, **kwargs):
     if url == DETAIL:
         return FetchResult(url=DETAIL, status=200, html=DETAIL_HTML)
     raise AssertionError(f"Unexpected outbound HTTP fetch: {url}")
+
+def fixture_dns(host, *args, **kwargs):
+    if host != "phase4-fixture.example.org":
+        raise AssertionError(f"Unexpected DNS lookup during isolated ingestion: {host}")
+    return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", 0))]
+
 
 async def blocked_render(*args, **kwargs):
     raise AssertionError("Unexpected rendered/network fetch in isolated CI")
@@ -103,7 +110,8 @@ async def main():
 
         # Patch ONLY HTTP response boundary; real discovery, extraction, dedupe,
         # run locking, persistence and pipeline orchestration remain unchanged.
-        with patch("app.services.scrapper.discovery.fetch", side_effect=fake_fetch), \
+        with patch("socket.getaddrinfo", side_effect=fixture_dns), \
+             patch("app.services.scrapper.discovery.fetch", side_effect=fake_fetch), \
              patch("app.services.scrapper.pipeline.fetch", side_effect=fake_fetch), \
              patch("app.services.scrapper.pipeline.fetch_rendered", side_effect=blocked_render):
             r = await client.post("/api/ingestion/run", headers=headers(admin_jwt),
