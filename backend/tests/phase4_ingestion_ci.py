@@ -42,14 +42,12 @@ DETAIL_HTML = """<html><head><title>Orbit Phase4 Controlled Fellowship 2027</tit
 <a href="https://phase4-fixture.example.org/apply">Apply now</a>
 </main></body></html>"""
 
-def fake_fetch(url, *args, **kwargs):
-    async def reply():
-        if url == SOURCE:
-            return FetchResult(url=SOURCE, status=200, html=LISTING)
-        if url == DETAIL:
-            return FetchResult(url=DETAIL, status=200, html=DETAIL_HTML)
-        raise AssertionError(f"Unexpected outbound HTTP fetch: {url}")
-    return reply()
+async def fake_fetch(url, *args, **kwargs):
+    if url == SOURCE:
+        return FetchResult(url=SOURCE, status=200, html=LISTING)
+    if url == DETAIL:
+        return FetchResult(url=DETAIL, status=200, html=DETAIL_HTML)
+    raise AssertionError(f"Unexpected outbound HTTP fetch: {url}")
 
 async def blocked_render(*args, **kwargs):
     raise AssertionError("Unexpected rendered/network fetch in isolated CI")
