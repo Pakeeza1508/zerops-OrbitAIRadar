@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import logging
+import time
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status, File
 from app.services.resume import extract_resume_text, parse_resume_profile
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.auth.debs import client_key, get_current_user, rate_limit
 from app.auth.security import create_access_token, hash_password, verify_password
@@ -14,7 +16,14 @@ from app.models.user import User
 from app.schemas.auth import LoginRequest, ProfileRequest, RegisterRequest
 from app.utils.mongo import serialize
 
+logger = logging.getLogger("orbit.auth")
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _trace(request: Request, stage: str, **fields):
+    """Safe auth lifecycle events: no email, password, token or request bodies."""
+    logger.info("request_id=%s stage=%s %s", getattr(request.state, "request_id", "-"), stage,
+                " ".join(f"{key}={value}" for key, value in fields.items()))
 
 
 def _user_response(user: User) -> dict:
@@ -30,10 +39,14 @@ def _user_response(user: User) -> dict:
 
 @router.post("/register")
 async def register(payload: RegisterRequest, request: Request):
+    _trace(request, "register.received")
     rate_limit(client_key(request, "register"), 8, 60)
+    _trace(request, "register.rate_limit_passed")
     db = get_db()
     email = payload.email.lower().strip()
     now = datetime.now(timezone.utc)
+    _trace(request, "register.password_hash_start")
+    started = time.monotonic()
     user_doc = {
         "email": email,
         "passwordHash": hash_password(payload.password),
@@ -43,31 +56,48 @@ async def register(payload: RegisterRequest, request: Request):
         "createdAt": now,
         "updatedAt": now,
     }
+    _trace(request, "register.password_hash_ok", elapsed_ms=int((time.monotonic() - started) * 1000))
     try:
+        _trace(request, "register.users_insert_start")
+        started = time.monotonic()
         result = await db.users.insert_one(user_doc)
+        _trace(request, "register.users_insert_ok", elapsed_ms=int((time.monotonic() - started) * 1000))
     except DuplicateKeyError:
+        _trace(request, "register.duplicate")
         raise HTTPException(status_code=409, detail="An account with this email already exists")
+    except PyMongoError as exc:
+        _trace(request, "register.users_insert_failed", error_type=type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Database unavailable. Check MongoDB connection.") from exc
 
     user_doc["_id"] = result.inserted_id
     user = User.from_mongo(user_doc)
-    await db.profiles.update_one(
-        {"userId": str(result.inserted_id)},
-        {
-            "$setOnInsert": {
-                "userId": str(result.inserted_id),
-                "fullName": payload.fullName,
-                "skills": [],
-                "interests": [],
-                "preferredCategories": [],
-                "locationPreference": [],
-                "preferredCountries": [],
-                "createdAt": now,
+    try:
+        _trace(request, "register.profile_upsert_start")
+        started = time.monotonic()
+        await db.profiles.update_one(
+            {"userId": str(result.inserted_id)},
+            {
+                "$setOnInsert": {
+                    "userId": str(result.inserted_id),
+                    "fullName": payload.fullName,
+                    "skills": [],
+                    "interests": [],
+                    "preferredCategories": [],
+                    "locationPreference": [],
+                    "preferredCountries": [],
+                    "createdAt": now,
+                },
+                "$set": {"updatedAt": now},
             },
-            "$set": {"updatedAt": now},
-        },
-        upsert=True,
-    )
+            upsert=True,
+        )
+        _trace(request, "register.profile_upsert_ok", elapsed_ms=int((time.monotonic() - started) * 1000))
+    except PyMongoError as exc:
+        _trace(request, "register.profile_upsert_failed", error_type=type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Database unavailable while creating profile.") from exc
+    _trace(request, "register.token_create_start")
     token = create_access_token(str(result.inserted_id), email)
+    _trace(request, "register.complete")
     return {"accessToken": token, "tokenType": "bearer", "user": _user_response(user)}
 
 
