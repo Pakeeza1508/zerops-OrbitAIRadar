@@ -9,9 +9,9 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 import dns.resolver
-from app.utils import mongo_dns
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.utils import mongo_dns
 
 from httpx import ASGITransport, AsyncClient
 from pymongo.errors import ServerSelectionTimeoutError
