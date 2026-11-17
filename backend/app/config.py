@@ -8,7 +8,7 @@ from dotenv import load_dotenv, dotenv_values
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 _ENV_FILE = ROOT_DIR / ".env"
-_PROCESS_MONGO_KEY = next((key for key in ("MONGO_URL", "MONGODB_URI") if os.environ.get(key)), None)
+_PROCESS_MONGO_KEYS = {key for key in ("MONGO_URL", "MONGODB_URI") if os.environ.get(key)}
 _ENV_FILE_KEYS = set(dotenv_values(_ENV_FILE).keys()) if _ENV_FILE.is_file() else set()
 load_dotenv(_ENV_FILE)
 
@@ -17,7 +17,7 @@ def connection_diagnostics() -> dict:
     """Metadata-only configuration report; never return any credentials or URI."""
     mongo_key = next((key for key in ("MONGO_URL", "MONGODB_URI") if os.environ.get(key)), None)
     source = (
-        "process_environment" if _PROCESS_MONGO_KEY
+        "process_environment" if mongo_key in _PROCESS_MONGO_KEYS
         else "backend_dotenv" if mongo_key and mongo_key in _ENV_FILE_KEYS
         else "default_localhost"
     )
