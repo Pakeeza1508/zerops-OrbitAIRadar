@@ -1,25 +1,52 @@
 const BASE_URL = (process.env.REACT_APP_BACKEND_URL || "http://localhost:8000").replace(/\/$/, "");
 
+// Diagnostics are intentionally metadata-only: never log credentials, request bodies or tokens.
+const DEBUG = process.env.NODE_ENV !== "production" || process.env.REACT_APP_DEBUG_REQUESTS === "true";
+let sequence = 0;
+function trace(id, stage, meta = {}) {
+  if (DEBUG) console.info("[Orbit API]", id, stage, meta);
+}
+
 export async function apiRequest(path, { method = "GET", body, auth = true } = {}) {
+  const id = ++sequence;
+  const started = Date.now();
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const token = sessionStorage.getItem("orbit_access_token");
   if (auth && token) headers.Authorization = `Bearer ${token}`;
+  const controller = new AbortController();
+  // MongoDB connectivity failures can take ~30 seconds. Bound UI waiting.
+  const timeout = setTimeout(() => controller.abort(), 40000);
   let response;
+  trace(id, "start", { method, path, auth, base: BASE_URL });
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       method, headers, body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
-  } catch { throw new Error("Orbit's server is unreachable. Please try again."); }
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    if (auth && response.status === 401) {
-      sessionStorage.removeItem("orbit_access_token");
-      window.dispatchEvent(new Event("orbit:session-expired"));
+    trace(id, "response", { status: response.status, elapsedMs: Date.now() - started });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (auth && response.status === 401) {
+        sessionStorage.removeItem("orbit_access_token");
+        window.dispatchEvent(new Event("orbit:session-expired"));
+      }
+      trace(id, "http_error", { status: response.status, elapsedMs: Date.now() - started });
+      throw new Error(typeof data.detail === "string" ? data.detail : `Request failed (${response.status}).`);
     }
-    throw new Error(typeof data.detail === "string" ? data.detail : `Request failed (${response.status}).`);
+    trace(id, "success", { elapsedMs: Date.now() - started });
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      trace(id, "timeout", { elapsedMs: Date.now() - started });
+      throw new Error("Orbit API timed out. Check backend and MongoDB connectivity.");
+    }
+    trace(id, "failure", { type: error.name, elapsedMs: Date.now() - started });
+    if (error instanceof TypeError) throw new Error("Orbit's server is unreachable. Check the backend URL and CORS.");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return data;
 }
 
 export function clearLegacyAuth() {
