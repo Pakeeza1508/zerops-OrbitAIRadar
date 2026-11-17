@@ -51,7 +51,7 @@ async def main():
 
         with patch("app.api.auth.get_db", return_value=BrokenDb()):
             response = await client.post("/api/auth/register", json={
-                "email": "phase5-offline@example.invalid",
+                "email": "phase5-offline@example.com",
                 "password": "Diagnostics-Test-Only-Passphrase-1234",
                 "fullName": "Phase 5 Diagnostics",
             })
