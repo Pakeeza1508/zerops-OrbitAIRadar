@@ -1,4 +1,6 @@
 import logging
+import time
+from app.config import connection_diagnostics
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING, TEXT
@@ -13,6 +15,9 @@ _client: AsyncIOMotorClient | None = None
 def get_client() -> AsyncIOMotorClient:
     global _client
     if _client is None:
+        meta = connection_diagnostics()
+        logger.info("stage=mongo.client_create source=%s target=%s key=%s",
+                    meta["mongo_source"], meta["mongo_target"], meta["mongo_key_used"])
         _client = AsyncIOMotorClient(settings.mongo_url, tz_aware=True)
     return _client
 
@@ -22,11 +27,15 @@ def get_db() -> AsyncIOMotorDatabase:
 
 
 async def ping_db() -> bool:
+    started = time.monotonic()
+    logger.info("stage=mongo.ping_start")
     try:
         await get_client().admin.command("ping")
+        logger.info("stage=mongo.ping_ok elapsed_ms=%d", int((time.monotonic() - started) * 1000))
         return True
     except Exception as exc:
-        logger.warning("MongoDB ping failed: %s", exc)
+        logger.warning("stage=mongo.ping_failed error_type=%s elapsed_ms=%d",
+                       type(exc).__name__, int((time.monotonic() - started) * 1000))
         return False
 
 
@@ -38,6 +47,8 @@ async def close_client() -> None:
 
 
 async def ensure_indexes() -> None:
+    started = time.monotonic()
+    logger.info("stage=mongo.indexes_start")
     db = get_db()
     try:
         await db.users.create_index([("email", ASCENDING)], unique=True)
@@ -75,5 +86,7 @@ async def ensure_indexes() -> None:
         await db.scrape_runs.create_index([("startedAt", DESCENDING)])
         await db.locks.create_index([("name", ASCENDING)], unique=True)
         await db.candidate_queue.create_index([("url", ASCENDING)], unique=True)
+        logger.info("stage=mongo.indexes_ok elapsed_ms=%d", int((time.monotonic() - started) * 1000))
     except Exception as exc:
-        logger.warning("Index creation issue: %s", exc)
+        logger.warning("stage=mongo.indexes_failed error_type=%s elapsed_ms=%d",
+                       type(exc).__name__, int((time.monotonic() - started) * 1000))
