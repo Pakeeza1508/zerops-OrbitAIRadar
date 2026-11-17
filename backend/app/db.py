@@ -6,6 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING, TEXT
 
 from app.config import settings
+from app.utils.mongo_dns import configure_mongo_dns
 
 logger = logging.getLogger("orbit.db")
 
@@ -18,6 +19,7 @@ def get_client() -> AsyncIOMotorClient:
         meta = connection_diagnostics()
         logger.info("stage=mongo.client_create source=%s target=%s key=%s",
                     meta["mongo_source"], meta["mongo_target"], meta["mongo_key_used"])
+        configure_mongo_dns(settings.mongo_url)
         _client = AsyncIOMotorClient(settings.mongo_url, tz_aware=True)
     return _client
 
