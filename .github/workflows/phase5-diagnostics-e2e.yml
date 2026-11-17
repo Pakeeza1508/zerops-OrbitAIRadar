@@ -50,6 +50,9 @@ jobs:
           done
           cat ../backend-ci.log
           exit 1
+      - name: Test Phase 5 configuration, CORS, and offline database behavior
+        working-directory: backend
+        run: python tests/phase5_diagnostics.py
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
