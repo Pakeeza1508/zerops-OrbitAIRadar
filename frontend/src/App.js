@@ -134,20 +134,28 @@ function OrbitProvider({ children }) {
   }, [auth, profile]);
 
   const login = async ({ email, password, fullName, isRegister }) => {
+    const operation = isRegister ? "register" : "login";
+    const debug = process.env.NODE_ENV !== "production" || process.env.REACT_APP_DEBUG_REQUESTS === "true";
+    if (debug) console.info("[Orbit Auth]", operation, "request_start");
     const response = await apiRequest(isRegister ? "/api/auth/register" : "/api/auth/login", {
       method: "POST", auth: false,
       body: isRegister ? { email, password, fullName } : { email, password },
     });
     if (!response.accessToken || !response.user) throw new Error("Invalid authentication response.");
+    if (debug) console.info("[Orbit Auth]", operation, "request_success");
     sessionStorage.setItem("orbit_access_token", response.accessToken);
     try {
+      if (debug) console.info("[Orbit Auth]", operation, "profile_fetch_start");
       const record = await apiRequest("/api/profile");
       setProfileState(fromApiProfile(record));
+      if (debug) console.info("[Orbit Auth]", operation, "profile_fetch_success");
     } catch (error) {
+      if (debug) console.warn("[Orbit Auth]", operation, "profile_fetch_failed", { type: error.name });
       sessionStorage.removeItem("orbit_access_token");
       throw error;
     }
     setAuth(true);
+    if (debug) console.info("[Orbit Auth]", operation, "session_ready");
     return response.user;
   };
 
