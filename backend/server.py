@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+import time
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
@@ -43,6 +45,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def trace_requests(request: Request, call_next):
+    """Request/response metadata only; never emit query strings, headers or bodies."""
+    request_id = uuid.uuid4().hex[:12]
+    request.state.request_id = request_id
+    started = time.monotonic()
+    logger.info("request_id=%s stage=http.received method=%s path=%s", request_id, request.method, request.url.path)
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("request_id=%s stage=http.unhandled_error elapsed_ms=%d",
+                         request_id, int((time.monotonic() - started) * 1000))
+        raise
+    response.headers["X-Orbit-Request-ID"] = request_id
+    logger.info("request_id=%s stage=http.finished method=%s path=%s status=%d elapsed_ms=%d",
+                request_id, request.method, request.url.path, response.status_code,
+                int((time.monotonic() - started) * 1000))
+    return response
+
 
 app.include_router(api_router)
 
