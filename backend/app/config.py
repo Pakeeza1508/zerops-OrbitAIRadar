@@ -4,10 +4,35 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-load_dotenv(ROOT_DIR / ".env")
+_ENV_FILE = ROOT_DIR / ".env"
+_PROCESS_MONGO_KEY = next((key for key in ("MONGO_URL", "MONGODB_URI") if os.environ.get(key)), None)
+_ENV_FILE_KEYS = set(dotenv_values(_ENV_FILE).keys()) if _ENV_FILE.is_file() else set()
+load_dotenv(_ENV_FILE)
+
+
+def connection_diagnostics() -> dict:
+    """Metadata-only configuration report; never return any credentials or URI."""
+    mongo_key = next((key for key in ("MONGO_URL", "MONGODB_URI") if os.environ.get(key)), None)
+    source = (
+        "process_environment" if _PROCESS_MONGO_KEY
+        else "backend_dotenv" if mongo_key and mongo_key in _ENV_FILE_KEYS
+        else "default_localhost"
+    )
+    url = os.getenv("MONGO_URL") or os.getenv("MONGODB_URI") or ""
+    return {
+        "env_file_present": _ENV_FILE.is_file(),
+        "env_file_has_mongo_key": bool(_ENV_FILE_KEYS.intersection({"MONGO_URL", "MONGODB_URI"})),
+        "mongo_key_used": mongo_key or "none",
+        "mongo_source": source,
+        "mongo_target": ("not_configured" if not url else
+                         "local" if "localhost" in url or "127.0.0.1" in url else "remote"),
+        "jwt_secret_configured": bool(os.getenv("JWT_SECRET")),
+        "cors_origins_count": len([v for v in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if v.strip()]),
+    }
+
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
