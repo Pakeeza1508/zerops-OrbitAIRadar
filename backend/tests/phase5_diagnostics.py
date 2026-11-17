@@ -8,6 +8,8 @@ import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
+import dns.resolver
+from app.utils import mongo_dns
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -33,6 +35,31 @@ async def main():
     assert meta["mongo_target"] == "local", meta
     assert "mongodb://" not in str(meta)
     print("PHASE5 DIAGNOSTICS CASE 1 PASS Safe configuration provenance; no URI")
+
+    saved_resolver = dns.resolver.default_resolver
+    saved_configured = mongo_dns._configured
+    try:
+        with patch("app.utils.mongo_dns.platform.system", return_value="Windows"):
+            mongo_dns._configured = False
+            with patch.dict(os.environ, {"MONGO_DNS_SERVERS": ""}):
+                mongo_dns.configure_mongo_dns("mongodb+srv://test.example.com/")
+                assert list(dns.resolver.get_default_resolver().nameservers) == ["1.1.1.1", "1.0.0.1"]
+            # A subsequent MongoDB call must not reset the configured DNS resolver.
+            mongo_dns.configure_mongo_dns("mongodb+srv://test.example.com/")
+            assert list(dns.resolver.get_default_resolver().nameservers) == ["1.1.1.1", "1.0.0.1"]
+        print("PHASE5 DIAGNOSTICS CASE 1B PASS Windows SRV DNS auto configuration")
+    finally:
+        dns.resolver.default_resolver = saved_resolver
+        mongo_dns._configured = saved_configured
+
+    with patch("app.utils.mongo_dns.platform.system", return_value="Linux"):
+        mongo_dns._configured = False
+        with patch.dict(os.environ, {"MONGO_DNS_SERVERS": ""}):
+            mongo_dns.configure_mongo_dns("mongodb+srv://test.example.com/")
+            assert dns.resolver.default_resolver is saved_resolver
+        mongo_dns._configured = saved_configured
+    print("PHASE5 DIAGNOSTICS CASE 1C PASS Hosting system DNS unchanged")
+
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         allowed = await client.options("/api/auth/register", headers={
