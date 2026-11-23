@@ -164,8 +164,8 @@ export default function AppShell({ children, profile, onLogout }) {
 
           <div className="flex items-center gap-2.5">
             <div className="hidden items-center gap-2 rounded-xl border border-white/[.08] bg-white/[.035] px-3.5 py-2 text-[11px] text-[#8fa19e] xl:flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#69f0c0] shadow-[0_0_8px_#69f0c0]" />
-              Radar is live
+              <span className="h-1.5 w-1.5 rounded-full bg-[#ffcb6b]" />
+              Radar history available
             </div>
             <button
               className="grid h-10 w-10 place-items-center rounded-xl border border-white/[.08] bg-white/[.035] text-[#96aaa4] transition hover:text-white"
