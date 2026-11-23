@@ -8,6 +8,22 @@ from app.services.matching.engine import score_opportunity
 from app.utils.mongo import object_id, serialize
 
 
+# Conservative read-time hygiene for obviously non-application pages in historical data.
+# Does not delete or rewrite any MongoDB record. Ingestion validation must be
+# addressed separately before new records can be treated as verified.
+NON_OPPORTUNITY_TITLES = re.compile(
+    r"^(?:frequently asked questions|faq(?:s)?(?:\s*[-:])?|\d+\s+tips?\b|"
+    r"latest (?:internship |career |student )?news\b|careers?\s*:\s*how to apply\b|"
+    r".*\bcloseout\b|passion meets precision at nasa\b|"
+    r"nasa virtual guest program\b)", re.IGNORECASE
+)
+
+
+def is_generic_content_page(doc: dict) -> bool:
+    title = str(doc.get("title") or "").strip()
+    return bool(NON_OPPORTUNITY_TITLES.search(title))
+
+
 async def get_profile(user_id: str) -> dict:
     return await get_db().profiles.find_one({"userId": user_id}) or {"userId": user_id}
 
@@ -169,7 +185,7 @@ async def list_opportunities(
 
     # Fetch a bounded pool because match score is user-specific and computed in Python.
     docs = await db.opportunities.find(query).sort("createdAt", -1).limit(500).to_list(500)
-    items = [enrich_opportunity(doc, profile) for doc in docs]
+    items = [enrich_opportunity(doc, profile) for doc in docs if not is_generic_content_page(doc)]
     if min_match:
         items = [x for x in items if int(x.get("matchScore") or 0) >= min_match]
 
@@ -207,7 +223,7 @@ async def dashboard_stats(user_id: str) -> dict:
     docs = await db.opportunities.find(
         {"status": {"$in": ["active", "closing_soon"]}}
     ).sort("createdAt", -1).limit(500).to_list(500)
-    enriched = [enrich_opportunity(x, profile) for x in docs]
+    enriched = [enrich_opportunity(x, profile) for x in docs if not is_generic_content_page(x)]
     now = datetime.now(timezone.utc)
     today = now - timedelta(hours=24)
     recommended = sum(1 for x in enriched if x["matchScore"] >= 70)
@@ -218,6 +234,8 @@ async def dashboard_stats(user_id: str) -> dict:
     )
     new_today = 0
     for doc in docs:
+        if is_generic_content_page(doc):
+            continue
         created = doc.get("createdAt")
         if created and created.tzinfo is None:
             created = created.replace(tzinfo=timezone.utc)
