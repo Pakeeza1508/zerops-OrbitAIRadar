@@ -40,7 +40,7 @@ export default function OpportunityCard({ opportunity, saved = false, onToggleSa
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-[10px]">
                 {opportunity.verified && (
-                  <span className="font-bold text-[#69f0c0]">VERIFIED</span>
+                  <span className="font-bold text-[#69f0c0]">SOURCE LISTED</span>
                 )}
                 {opportunity.verified && <span className="text-white/20">•</span>}
                 <span
@@ -122,7 +122,7 @@ export default function OpportunityCard({ opportunity, saved = false, onToggleSa
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {opportunity.verified && (
                 <span className="flex items-center gap-1 text-[10px] font-bold text-[#69f0c0]">
-                  <CheckCircle2 size={12} /> Official source
+                  <CheckCircle2 size={12} /> Indexed source
                 </span>
               )}
               <span className="truncate text-[10px] text-[#60736e]">
