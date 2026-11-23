@@ -1242,7 +1242,7 @@ function DashboardPage() {
             </h1>
 
             <p className="mt-4 max-w-[570px] text-[13px] leading-6 text-[#93a6a1] sm:text-sm">
-              Orbit currently has {Number(stats.totalActive) || 0} active opportunities indexed for matching.
+              {opportunitiesLoading ? "Loading indexed opportunities…" : `Orbit currently has ${Number(stats.totalActive) || 0} indexed records for matching (not independently eligibility-verified).`}
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2">
@@ -1287,15 +1287,15 @@ function DashboardPage() {
 
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
-              <div className="text-sm font-bold text-white">{Number(stats.totalActive) || 0}</div>
+              <div className="text-sm font-bold text-white">{opportunitiesLoading ? "—" : Number(stats.totalActive) || 0}</div>
               <div className="text-[9px] text-[#6e827d]">Ranked</div>
             </div>
             <div>
-              <div className="text-sm font-bold text-white">{recommended}</div>
+              <div className="text-sm font-bold text-white">{opportunitiesLoading ? "—" : recommended}</div>
               <div className="text-[9px] text-[#6e827d]">Strong</div>
             </div>
             <div>
-              <div className="text-sm font-bold text-[#d5ff69]">+{fresh}</div>
+              <div className="text-sm font-bold text-[#d5ff69]">{opportunitiesLoading ? "—" : `+${fresh}`}</div>
               <div className="text-[9px] text-[#6e827d]">New</div>
             </div>
           </div>
@@ -1305,21 +1305,21 @@ function DashboardPage() {
       <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Strong matches"
-          value={recommended}
+          value={opportunitiesLoading ? "—" : recommended}
           hint="70%+ profile fit"
           icon={Target}
           tone="slate"
         />
         <MetricCard
           label="Closing soon"
-          value={closing}
+          value={opportunitiesLoading ? "—" : closing}
           hint="Within 7 days"
           icon={CalendarClock}
           tone="amber"
         />
         <MetricCard
           label="New opportunities"
-          value={fresh}
+          value={opportunitiesLoading ? "—" : fresh}
           hint="Recently discovered"
           icon={Zap}
           tone="blue"
@@ -1621,6 +1621,7 @@ function DiscoverPage() {
             </p>
 
             <p className="mt-2 text-xs text-blue-800">{aiAnswer.usedAI ? "AI interpreted" : "Rule-based fallback"} · {aiAnswer.total} API matches · up to 50 returned</p>
+            <p className="mt-1 text-xs text-blue-800">Parsed filters: {Object.entries(aiAnswer.filters).filter(([, value]) => Array.isArray(value) ? value.length > 0 : value !== null && value !== undefined && value !== false && value !== "").map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : String(value)}`).join(" · ") || "None extracted"}</p>
             <button type="button" onClick={clearAiResults} className="mt-2 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-800">Clear AI search</button>
             <div className="mt-3 flex flex-wrap gap-2">
               {aiAnswer.results.slice(0, 8).map(
@@ -1679,8 +1680,6 @@ function DiscoverPage() {
             options={[
               "Any",
               "Remote",
-              "Hybrid",
-              "On-site",
             ]}
           />
 
@@ -1690,9 +1689,6 @@ function DiscoverPage() {
             options={[
               "Any",
               "Funded/Paid",
-              "Fully funded",
-              "Paid",
-              "Prize",
             ]}
           />
 
