@@ -1495,6 +1495,12 @@ function DiscoverPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
+  // Keep natural-language results separate from manual Discover filters.
+  const clearAiResults = () => { setAiAnswer(null); setAiError(""); setPage(1); };
+  const aiActive = Boolean(aiAnswer);
+  const displayed = aiActive ? aiAnswer.results.slice((page - 1) * pageSize, page * pageSize) : filtered;
+  const displayTotal = aiActive ? aiAnswer.results.length : total;
+  const filtersActive = aiActive || Boolean(q.trim()) || category !== "All" || workMode !== "Any" || funding !== "Any" || deadline !== "Any" || Number(minMatch) > 0;
   // API is the sole source of results, including sorting and filtering.
   useEffect(() => { setPage(1); }, [q, category, workMode, funding, deadline, minMatch, sort]);
   useEffect(() => {
@@ -1535,7 +1541,12 @@ function DiscoverPage() {
     setAiError("");
     try {
       const data = await askOrbitApi(aiQuery.trim());
-      setAiAnswer({ text: data.answer || "Search completed.", results: data.items });
+      setPage(1);
+      const returned = Array.isArray(data.items) ? data.items : [];
+      setAiAnswer({
+        text: returned.length === 0 ? "No matching indexed opportunities. Missing deadlines or eligibility cannot confirm a match." : `${returned.length} indexed result(s). Check eligibility, funding and deadline on the official source.`,
+        results: returned, usedAI: data.usedAI === true, total: data.total || 0, filters: data.filters || {},
+      });
     } catch (error) {
       setAiError(error.message || "Ask Orbit could not complete your search.");
     } finally { setAiLoading(false); }
@@ -1561,7 +1572,7 @@ function DiscoverPage() {
           </p>
         </div>
 
-        <span className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">Live ingestion runs independently through the existing backend pipeline</span>
+        <span className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">Historical indexed records. Check Radar for the last confirmed scan.</span>
       </div>
 
       <section className="mt-6 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -1604,11 +1615,13 @@ function DiscoverPage() {
         </div>
 
         {aiAnswer && (
-          <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+          <div role="status" className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
             <p className="text-sm leading-6 text-blue-950">
               {aiAnswer.text}
             </p>
 
+            <p className="mt-2 text-xs text-blue-800">{aiAnswer.usedAI ? "AI interpreted" : "Rule-based fallback"} · {aiAnswer.total} API matches · up to 50 returned</p>
+            <button type="button" onClick={clearAiResults} className="mt-2 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-800">Clear AI search</button>
             <div className="mt-3 flex flex-wrap gap-2">
               {aiAnswer.results.map(
                 (o) => (
@@ -1637,7 +1650,7 @@ function DiscoverPage() {
           <input
             value={q}
             onChange={(e) =>
-              setQ(e.target.value)
+              (clearAiResults(), setQ(e.target.value))
             }
             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none focus:border-blue-400"
             placeholder="Search opportunities, organizations or skills…"
@@ -1647,7 +1660,7 @@ function DiscoverPage() {
         <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
           <FilterSelect
             value={category}
-            onChange={setCategory}
+            onChange={(value) => { clearAiResults(); setCategory(value); }}
             options={[
               "All",
               "Fellowship",
@@ -1662,7 +1675,7 @@ function DiscoverPage() {
 
           <FilterSelect
             value={workMode}
-            onChange={setWorkMode}
+            onChange={(value) => { clearAiResults(); setWorkMode(value); }}
             options={[
               "Any",
               "Remote",
@@ -1673,7 +1686,7 @@ function DiscoverPage() {
 
           <FilterSelect
             value={funding}
-            onChange={setFunding}
+            onChange={(value) => { clearAiResults(); setFunding(value); }}
             options={[
               "Any",
               "Funded/Paid",
@@ -1685,7 +1698,7 @@ function DiscoverPage() {
 
           <FilterSelect
             value={deadline}
-            onChange={setDeadline}
+            onChange={(value) => { clearAiResults(); setDeadline(value); }}
             options={[
               "Any",
               "≤ 14 days",
@@ -1698,7 +1711,7 @@ function DiscoverPage() {
             value={String(
               minMatch
             )}
-            onChange={setMinMatch}
+            onChange={(value) => { clearAiResults(); setMinMatch(value); }}
             options={[
               "0",
               "70",
@@ -1715,7 +1728,7 @@ function DiscoverPage() {
 
           <FilterSelect
             value={sort}
-            onChange={setSort}
+            onChange={(value) => { clearAiResults(); setSort(value); }}
             options={[
               "Best match",
               "Newest",
@@ -1728,24 +1741,24 @@ function DiscoverPage() {
       <div className="mt-6 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-black">
-            {total} opportunities
+            {displayTotal} {aiActive ? "AI search results" : "opportunities"}
           </h2>
 
           <p className="mt-1 text-xs text-slate-500">
-            Showing server results from the current opportunity index.
+            {aiActive ? "Results returned by Ask Orbit API. Eligibility and deadlines need independent confirmation." : "Indexed server records; missing data is not verified."}
           </p>
         </div>
 
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
           <Filter size={14} />
-          Filters active
+          {filtersActive ? "Filters active" : "No filters applied"}
         </div>
       </div>
 
       {loading && <p className="mt-4 text-sm text-slate-600">Loading opportunities…</p>}
       {loadError && <p role="alert" className="mt-4 text-sm text-red-700">{loadError}</p>}
       <div className="mt-4 grid gap-3 xl:grid-cols-2">
-        {!loading && !loadError && filtered.map((o) => (
+        {(aiActive || (!loading && !loadError)) && displayed.map((o) => (
           <OpportunityCard
             key={o.id}
             opportunity={o}
@@ -1758,14 +1771,14 @@ function DiscoverPage() {
           />
         ))}
 
-        {!loading && !loadError && filtered.length === 0 && (
+        {(aiActive || (!loading && !loadError)) && displayed.length === 0 && (
           <Empty
             title="No matches in this view"
-            text="Relax a filter or search for a different keyword."
+            text={aiActive ? "No verified matches in the current index. Try another query." : "Relax a filter or search for a different keyword."}
           />
         )}
       </div>
-      {!loading && !loadError && total > pageSize && (
+      {(aiActive || (!loading && !loadError)) && displayTotal > pageSize && (
         <div className="mt-5 flex items-center justify-between gap-3 text-sm">
           <button
             type="button"
@@ -1773,11 +1786,11 @@ function DiscoverPage() {
             disabled={page === 1}
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-bold disabled:opacity-40"
           >Previous</button>
-          <span>Page {page} of {Math.ceil(total / pageSize)}</span>
+          <span>Page {page} of {Math.ceil(displayTotal / pageSize)}</span>
           <button
             type="button"
-            onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
-            disabled={page >= Math.ceil(total / pageSize)}
+            onClick={() => setPage(p => Math.min(Math.ceil(displayTotal / pageSize), p + 1))}
+            disabled={page >= Math.ceil(displayTotal / pageSize)}
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-bold disabled:opacity-40"
           >Next</button>
         </div>
@@ -1937,7 +1950,7 @@ function OpportunityDetailPage() {
               <MiniStat
                 icon={CalendarClock}
                 label="Deadline"
-                value={`${opp.daysRemaining} days left`}
+                value={opp.daysRemaining == null ? "Deadline not stated" : opp.daysRemaining < 0 ? "Deadline passed" : `${opp.daysRemaining} days left`}
               />
 
               <MiniStat
@@ -2475,17 +2488,23 @@ function IngestionPage() {
   const sourceHealth = (source) => {
     if (!source.enabled) return "Disabled";
     if (source.lastError || Number(source.consecutiveFailures || 0) > 0) return "Error";
-    if (source.lastSuccessAt) return "Healthy";
+    if (source.lastSuccessAt) {
+      const age = Date.now() - new Date(source.lastSuccessAt).getTime();
+      return Number.isFinite(age) && age <= 48 * 3600000 ? "Recently successful" : "Stale / check needed";
+    }
     return "Not checked";
   };
   const newest = runs[0];
+  const lastRunTime = newest?.finishedAt || newest?.startedAt;
+  const age = lastRunTime ? Date.now() - new Date(lastRunTime).getTime() : Infinity;
+  const radarCurrent = Number.isFinite(age) && age >= 0 && age <= 48 * 3600000 && newest?.status === "success";
   return (
     <ShellRoute>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-xs font-bold uppercase tracking-[.15em] text-blue-600">Radar status</div>
           <h1 className="mt-2 text-3xl font-black">Discovery pipeline activity</h1>
-          <p className="mt-2 text-sm text-slate-500">Run history and source status from the backend, not simulated values.</p>
+          <p className="mt-2 text-sm text-slate-500">Backend scan history · Last run: {newest ? formatWhen(lastRunTime) : "None"} · {radarCurrent ? "Recently successful" : "Not confirmed live / stale"}.</p>
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={() => { setLoading(true); setError(""); loadRadar().catch(err => setError(err.message || "Refresh failed.")).finally(() => setLoading(false)); }}
@@ -2535,7 +2554,7 @@ function IngestionPage() {
           {selectedRun && (
             <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="text-lg font-bold">Run details</h2>
-              <p className="mt-2 text-sm">Status: {selectedRun.status} · Discovered: {selectedRun.urlsDiscovered ?? 0} · Fetched: {selectedRun.urlsFetched ?? 0} · Finished: {formatWhen(selectedRun.finishedAt)}</p>
+              <p className="mt-2 text-sm">Status: {selectedRun.status} · Discovered: {selectedRun.urlsDiscovered ?? "N/A"} · Fetched: {selectedRun.urlsFetched ?? "N/A"} · Rejected: {selectedRun.rejectedCount ?? "N/A"} · AI calls: {selectedRun.aiCalls ?? "N/A"} · Finished: {formatWhen(selectedRun.finishedAt)}</p>
               {Array.isArray(selectedRun.errors) && selectedRun.errors.length > 0 &&
                 <ul className="mt-3 list-disc pl-5 text-sm text-red-700">{selectedRun.errors.map((msg, index) => <li key={index}>{msg}</li>)}</ul>}
             </section>
@@ -2544,9 +2563,11 @@ function IngestionPage() {
             <h2 className="text-lg font-bold">Sources</h2>
             {sources.length === 0 ? <p className="mt-3 text-sm text-slate-500">No discovery sources configured.</p> : (
               <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm">
-                <thead><tr className="border-b text-slate-500"><th className="py-2">Source</th><th>Health</th><th>Last checked</th><th>Last success</th><th>Failures</th></tr></thead>
+                <thead><tr className="border-b text-slate-500"><th className="py-2">Source</th><th>Enabled</th><th>URL</th><th>Health</th><th>Last checked</th><th>Last success</th><th>Failures</th></tr></thead>
                 <tbody>{sources.map(source => <tr key={source.id} className="border-b border-slate-100">
                   <td className="py-3">{source.name}</td>
+                  <td>{source.enabled ? "Yes" : "No"}</td>
+                  <td className="max-w-[230px] break-all">{source.url || source.baseUrl || source.seedUrl || "Not provided"}</td>
                   <td>{sourceHealth(source)}</td>
                   <td>{formatWhen(source.lastRunAt)}</td>
                   <td>{formatWhen(source.lastSuccessAt)}</td>
