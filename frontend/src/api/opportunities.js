@@ -6,6 +6,14 @@ const score = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
 };
+// Decode common HTML entities from historical crawls without rendering untrusted HTML.
+const cleanText = (value) => String(value || "").replace(/&(#x[0-9a-f]+|#\d+|nbsp|amp|quot|apos|lt|gt);/gi, (whole, entity) => {
+  const codes = { nbsp: " ", amp: "&", quot: '"', apos: "'", lt: "<", gt: ">" };
+  const key = entity.toLowerCase();
+  if (codes[key] !== undefined) return codes[key];
+  const num = key.startsWith("#x") ? parseInt(key.slice(2), 16) : key.startsWith("#") ? parseInt(key.slice(1), 10) : NaN;
+  return Number.isInteger(num) && num >= 32 && num <= 0x10ffff ? String.fromCodePoint(num) : whole;
+}).replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
 const humanCategory = (value) => String(value || "Opportunity").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 export function fromApiOpportunity(raw = {}) {
   const item = raw || {};
@@ -15,8 +23,8 @@ export function fromApiOpportunity(raw = {}) {
   return {
     ...item,
     id: String(item.id || ""),
-    title: item.title || "Untitled opportunity",
-    organization: item.organization || "Organization not listed",
+    title: cleanText(item.title) || "Untitled opportunity",
+    organization: cleanText(item.organization) || "Organization not listed",
     category: humanCategory(item.category),
     match: score(item.matchScore), // Backend match is a structured object.
     matchDetails: item.match,
@@ -36,8 +44,8 @@ export function fromApiOpportunity(raw = {}) {
     verified: item.verified === true || item.verificationStatus === "verified",
     isNew: created && !Number.isNaN(created.getTime()) ? Date.now() - created.getTime() < 86400000 : false,
     lastChecked: item.lastChecked || (item.lastCheckedAt ? new Date(item.lastCheckedAt).toLocaleDateString() : "not available"),
-    shortDescription: item.shortDescription || item.description || "",
-    description: item.description || item.shortDescription || "No description provided.",
+    shortDescription: cleanText(item.shortDescription || item.description),
+    description: cleanText(item.description || item.shortDescription) || "No description provided.",
   };
 }
 export function fromApiSaved(row = {}) {
