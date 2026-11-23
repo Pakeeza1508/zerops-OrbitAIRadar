@@ -1623,7 +1623,7 @@ function DiscoverPage() {
             <p className="mt-2 text-xs text-blue-800">{aiAnswer.usedAI ? "AI interpreted" : "Rule-based fallback"} · {aiAnswer.total} API matches · up to 50 returned</p>
             <button type="button" onClick={clearAiResults} className="mt-2 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-800">Clear AI search</button>
             <div className="mt-3 flex flex-wrap gap-2">
-              {aiAnswer.results.map(
+              {aiAnswer.results.slice(0, 8).map(
                 (o) => (
                   <Link
                     key={o.id}
@@ -1751,12 +1751,12 @@ function DiscoverPage() {
 
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
           <Filter size={14} />
-          {filtersActive ? "Filters active" : "No filters applied"}
+          {filtersActive ? (aiActive ? "AI search active" : "Filters active") : "No filters applied"}
         </div>
       </div>
 
-      {loading && <p className="mt-4 text-sm text-slate-600">Loading opportunities…</p>}
-      {loadError && <p role="alert" className="mt-4 text-sm text-red-700">{loadError}</p>}
+      {!aiActive && loading && <p className="mt-4 text-sm text-slate-600">Loading opportunities…</p>}
+      {!aiActive && loadError && <p role="alert" className="mt-4 text-sm text-red-700">{loadError}</p>}
       <div className="mt-4 grid gap-3 xl:grid-cols-2">
         {(aiActive || (!loading && !loadError)) && displayed.map((o) => (
           <OpportunityCard
@@ -1774,7 +1774,7 @@ function DiscoverPage() {
         {(aiActive || (!loading && !loadError)) && displayed.length === 0 && (
           <Empty
             title="No matches in this view"
-            text={aiActive ? "No verified matches in the current index. Try another query." : "Relax a filter or search for a different keyword."}
+            text={aiActive ? "No matching indexed opportunities were returned. Try another query or adjust your requirements." : "Relax a filter or search for a different keyword."}
           />
         )}
       </div>
@@ -1917,7 +1917,7 @@ function OpportunityDetailPage() {
                       <CheckCircle2
                         size={12}
                       />
-                      Verified source
+                      Official source indexed
                     </span>
                   )}
                 </div>
