@@ -39,10 +39,27 @@ async def ai_search(payload: AIQueryRequest, user: User = Depends(get_current_us
     if not raw:
         raw = deterministic_query_filters(payload.query)
 
+    # Merge deterministic high-confidence constraints into both Groq and fallback.
+    # An LLM must not erase explicitly requested internship, remote or skills.
+    deterministic = deterministic_query_filters(payload.query)
+    raw = dict(raw)
+    for key in ("categories", "skills", "educationLevels"):
+        explicit = deterministic.get(key) or []
+        inferred = raw.get(key) or []
+        if explicit:
+            # Explicit categories/skills win over speculative model expansions.
+            raw[key] = explicit
+        elif not isinstance(inferred, list):
+            raw[key] = []
+    for key in ("remote", "fundingRequired", "deadlineBefore", "deadlineAfter"):
+        if deterministic.get(key) is not None:
+            raw[key] = deterministic[key]
+    if any(deterministic.get(k) for k in ("categories", "skills", "educationLevels", "applicantCountries", "destinationCountries", "remote", "fundingRequired", "deadlineBefore")):
+        raw["queryText"] = None
+
     # Explicit nationality and destination intent must not be lost when the LLM
     # returns the old single-country field or guesses a different interpretation.
     geography = geography_from_query(payload.query)
-    raw = dict(raw)
     llm_applicants = raw.get("applicantCountries") or []
     llm_destinations = raw.get("destinationCountries") or []
     # Deterministic explicit intent wins; the LLM can handle demonyms not in
