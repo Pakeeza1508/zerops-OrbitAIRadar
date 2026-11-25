@@ -49,7 +49,9 @@ QUERY_SYSTEM = """You convert a natural-language opportunity search into structu
 Reply ONLY with JSON using exactly these keys (omit nothing, use null/[] when unknown):
 {
  "categories": string[] (subset of ["scholarship","internship","fellowship","hackathon","grant","competition","research","open_source","developer_program","mentorship"]),
- "countries": string[],
+ "countries": string[] (DEPRECATED: always []),
+ "applicantCountries": string[] (student citizenship or country of residence, ONLY if explicitly stated),
+ "destinationCountries": string[] (desired physical opportunity location, ONLY if explicitly stated),
  "skills": string[],
  "remote": boolean|null,
  "fundingRequired": boolean|null,
@@ -59,7 +61,10 @@ Reply ONLY with JSON using exactly these keys (omit nothing, use null/[] when un
  "queryText": string|null (free-text keywords),
  "answer": string (one sentence describing what you searched for)
 }
-Never output database operators or field names other than the keys above."""
+Student nationality and opportunity location are separate. An Indian student applying to Germany means applicantCountries=["India"] and destinationCountries=["Germany"].
+A Canadian seeking opportunities in Canada means both may be Canada if explicit.
+For worldwide destinations return destinationCountries=[]. Do not assume a student wants to study in their own country.
+If nationality or destination is unstated use []. Do not invent eligibility. Never output database operators or field names other than the keys above."""
 
 
 async def classify_page(title: str, text: str) -> dict | None:
