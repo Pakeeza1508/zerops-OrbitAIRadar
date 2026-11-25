@@ -141,6 +141,8 @@ async def list_opportunities(
     deadline_before: datetime | None = None,
     deadline_after: datetime | None = None,
     countries: list[str] | None = None,
+    applicant_countries: list[str] | None = None,
+    destination_countries: list[str] | None = None,
     education_levels: list[str] | None = None,
     skills: list[str] | None = None,
     min_match: int = 0,
