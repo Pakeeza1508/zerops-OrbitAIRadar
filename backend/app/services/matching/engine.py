@@ -7,6 +7,7 @@ Weights (total 100):
 Unknown data is treated as neutral (partial credit), never as a failure.
 """
 
+from app.services.search_geography import normalize_country
 from app.utils.dates import days_remaining
 from app.utils.text import normalize_text
 
@@ -45,14 +46,14 @@ def _skill_score(profile_skills: set[str], required: set[str], preferred: set[st
 
 
 def _eligibility(country: str | None, eligible: list[str]):
-    normalized = _norm_set(eligible)
+    normalized = {normalize_text(normalize_country(x)) for x in (eligible or []) if x}
     if not normalized:
         return 0.6, "uncertain", "Eligible countries are not stated on the source page"
     if normalized & GLOBAL_MARKERS:
         return 1.0, "eligible", "Open to applicants worldwide"
     if not country:
         return 0.5, "uncertain", "Add your country to your profile for eligibility checks"
-    c = normalize_text(country)
+    c = normalize_text(normalize_country(country))
     for item in normalized:
         if c == item or c in item or item in c:
             return 1.0, "eligible", f"Applicants from {country} are accepted"
