@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.db import get_db
 from app.services.matching.engine import score_opportunity
-from app.services.search_geography import applicant_eligibility, destination_matches, education_eligibility
+from app.services.search_geography import applicant_eligibility, destination_eligibility, education_eligibility, remote_eligibility
 from app.utils.mongo import object_id, serialize
 
 
@@ -73,8 +73,10 @@ def build_db_query(
         )
     if categories:
         clauses.append({"category": {"$in": categories}})
+    # Keep missing remote metadata in the candidate pool so it can be shown as
+    # unverified; explicitly opposite remote values are excluded below.
     if remote is not None:
-        clauses.append({"remote": remote})
+        clauses.append({"$or": [{"remote": remote}, {"remote": None}, {"remote": {"$exists": False}}]})
     if funded is True:
         clauses.append(_funded_query())
     if funded is False:
@@ -181,7 +183,11 @@ async def list_opportunities(
     for doc in docs:
         if is_generic_content_page(doc):
             continue
-        if not destination_matches(doc.get("locations") or [], destination_countries or []):
+        destination_status = destination_eligibility(doc.get("locations") or [], destination_countries or [])
+        if destination_status == "ineligible":
+            continue
+        remote_status = remote_eligibility(doc.get("remote"), remote)
+        if remote_status == "ineligible":
             continue
         applicant_status = applicant_eligibility(doc.get("countriesEligible"), applicant_countries or countries or [])
         if applicant_status == "ineligible":
@@ -191,6 +197,8 @@ async def list_opportunities(
             continue
         enriched = enrich_opportunity(doc, search_profile)
         enriched["searchEligibility"] = applicant_status
+        enriched["searchDestinationEligibility"] = destination_status
+        enriched["searchRemoteEligibility"] = remote_status
         enriched["searchEducationEligibility"] = education_status
         items.append(enriched)
     if min_match:
