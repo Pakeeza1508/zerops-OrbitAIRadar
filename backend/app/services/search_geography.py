@@ -178,4 +178,14 @@ def education_eligibility(levels: list[str] | None, requested: list[str]) -> str
                 found = True
         if not found:
             known.add(normalized)
-    return "eligible" if known.intersection(requested) else "ineligible"
+    requested_normalized = set()
+    for level in requested:
+        value = str(level).lower().replace("_", " ").strip()
+        matched = False
+        for key, aliases in _EDUCATION_SYNONYMS.items():
+            if value in aliases:
+                requested_normalized.add(key)
+                matched = True
+        if not matched:
+            requested_normalized.add(value)
+    return "eligible" if known.intersection(requested_normalized) else "ineligible"
