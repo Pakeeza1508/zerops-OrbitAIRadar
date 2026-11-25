@@ -1544,7 +1544,7 @@ function DiscoverPage() {
       setPage(1);
       const returned = Array.isArray(data.items) ? data.items : [];
       setAiAnswer({
-        text: returned.length === 0 ? "No matching indexed opportunities. Missing deadlines or eligibility cannot confirm a match." : `${returned.length} indexed result(s). Check eligibility, funding and deadline on the official source.`,
+        text: returned.length === 0 ? "No matching indexed opportunities. Missing deadlines or eligibility cannot confirm a match." : `${returned.length} indexed result(s). ${returned.filter(item => item.searchEligibility === "unverified" || item.searchEducationEligibility === "unverified").length} require eligibility or education verification. Check funding and deadlines on the official source.`,
         results: returned, usedAI: data.usedAI === true, total: data.total || 0, filters: data.filters || {},
       });
     } catch (error) {
@@ -1600,7 +1600,7 @@ function DiscoverPage() {
                 askOrbit()
               }
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-4 pl-11 pr-4 text-sm outline-none focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
-              placeholder="Find fully funded AI opportunities for Pakistani undergraduates closing soon…"
+              placeholder="Find scholarships in Germany for Indian students, or internships worldwide…"
             />
           </div>
 
