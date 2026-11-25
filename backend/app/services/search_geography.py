@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-import pycountry
+from app.services.iso_countries import ISO_COUNTRY_NAMES
 
 # Accepted spelling variations; the ISO country registry supplies all other countries.
 ALIASES = {
@@ -50,22 +50,22 @@ ALIASES = {
 }
 
 _CANONICAL = {}
-for country in pycountry.countries:
+for name in ISO_COUNTRY_NAMES:
     canonical = {
-        "United States": "United States",
-        "United Kingdom": "United Kingdom",
-        "Türkiye": "Türkiye",
         "Russian Federation": "Russia",
         "Korea, Republic of": "South Korea",
         "Korea, Democratic People's Republic of": "North Korea",
         "Côte d'Ivoire": "Ivory Coast",
-    }.get(country.name, country.name)
-    for label in (country.name, getattr(country, "official_name", ""), getattr(country, "common_name", "")):
-        if len(label) >= 4:
-            _CANONICAL[label.lower()] = canonical
-    if len(country.alpha_3) == 3:
-        # Three-letter codes are only accepted as standalone tokens, not substrings.
-        _CANONICAL[country.alpha_3.lower()] = canonical
+    }.get(name, name)
+    if len(name) >= 4:
+        _CANONICAL[name.lower()] = canonical
+# Common ISO alpha-3 codes; full country and territory names are above.
+_CANONICAL.update({
+    "usa": "United States", "gbr": "United Kingdom", "deu": "Germany",
+    "pak": "Pakistan", "ind": "India", "can": "Canada",
+    "aus": "Australia", "nga": "Nigeria", "jpn": "Japan",
+    "fra": "France", "chn": "China", "bra": "Brazil",
+})
 for canonical, aliases in ALIASES.items():
     _CANONICAL[canonical.lower()] = canonical
     for alias in aliases:
