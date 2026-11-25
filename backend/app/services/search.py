@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.models.opportunity import CATEGORIES
 from app.services.scrapper.extract import SKILL_VOCAB
+from app.services.search_geography import geography_from_query
 
 
 def deterministic_query_filters(query: str) -> dict:
@@ -38,12 +39,7 @@ def deterministic_query_filters(query: str) -> dict:
         for term in ("fully funded", "funded", "stipend", "paid", "scholarship")
     ) else None
 
-    # Parse explicitly stated eligibility constraints even without Groq.
-    countries = []
-    if re.search(r"\b(?:pakistan|pakistani)\b", lowered):
-        countries.append("Pakistan")
-    if re.search(r"\bantarctica\b", lowered):
-        countries.append("Antarctica")
+    geography = geography_from_query(text)
 
     education_levels = []
     if re.search(r"\b(?:undergraduate|undergrads?|bachelors?|b\.?sc)\b", lowered):
@@ -67,7 +63,8 @@ def deterministic_query_filters(query: str) -> dict:
 
     return {
         "categories": categories,
-        "countries": countries,
+        "countries": [],
+        **geography,
         "skills": skills,
         "remote": remote,
         "fundingRequired": funding_required,
