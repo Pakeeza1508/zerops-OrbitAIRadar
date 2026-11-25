@@ -16,7 +16,9 @@ NON_OPPORTUNITY_TITLES = re.compile(
     r"^(?:frequently asked questions|faq(?:s)?(?:\s*[-:])?|\d+\s+tips?\b|"
     r"latest (?:internship |career |student )?news\b|careers?\s*:\s*how to apply\b|"
     r".*\bcloseout\b|passion meets precision at nasa\b|"
-    r"nasa virtual guest program\b)", re.IGNORECASE
+    r"nasa virtual guest program\b|"
+    r".*\b(?:watches earth.s weight|finds center of mass)\b|"
+    r".*\b(?:news release|press release|feature article)\b)", re.IGNORECASE
 )
 
 
@@ -95,22 +97,41 @@ def build_db_query(
     # Student education and destination are validated after retrieval against
     # normalized values; database-only exact matching loses legitimate synonyms.
 
-    if skills:
-        skill_patterns = [re.escape(x) for x in skills if x][:12]
-        if skill_patterns:
-            clauses.append(
-                {
-                    "$or": [
-                        {"requiredSkills": {"$regex": pattern, "$options": "i"}}
-                        for pattern in skill_patterns
-                    ]
-                    + [
-                        {"preferredSkills": {"$regex": pattern, "$options": "i"}}
-                        for pattern in skill_patterns
-                    ]
-                }
-            )
+    # Search skill evidence after retrieval, including descriptions and fieldsOfStudy.
+    # Historical records often have no extracted requiredSkills; a raw Mongo
+    # requiredSkills-only filter silently dropped relevant internships.
     return {"$and": clauses} if len(clauses) > 1 else clauses[0]
+
+
+def skill_query_matches(doc: dict, skills: list[str] | None) -> bool:
+    """For AI searches, require actual skill/topic evidence, never a loose substring.
+
+    Use public opportunity evidence as well as extracted skill tags because
+    historical index records often have missing requiredSkills.
+    """
+    if not skills:
+        return True
+    fields = ("title", "shortDescription", "description", "requiredSkills",
+              "preferredSkills", "fieldsOfStudy")
+    pieces = []
+    for field in fields:
+        value = doc.get(field) or ""
+        pieces.extend(str(v) for v in value) if isinstance(value, list) else pieces.append(str(value))
+    haystack = " ".join(pieces).lower()
+    if not haystack.strip():
+        return False
+    aliases = {
+        "software engineering": ("software engineer", "software engineering",
+                                 "software developer", "software development"),
+        "ai": ("ai", "artificial intelligence", "machine learning", "deep learning"),
+        "machine learning": ("machine learning", "ml engineer"),
+        "data science": ("data science", "data scientist"),
+    }
+    for skill in skills:
+        variants = aliases.get(skill.strip().lower(), (skill.strip().lower(),))
+        if any(re.search(r"(?<![a-z0-9])" + re.escape(v) + r"(?![a-z0-9])", haystack) for v in variants if v):
+            return True
+    return False
 
 
 def enrich_opportunity(doc: dict, profile: dict | None = None) -> dict:
@@ -182,6 +203,8 @@ async def list_opportunities(
     items = []
     for doc in docs:
         if is_generic_content_page(doc):
+            continue
+        if not skill_query_matches(doc, skills):
             continue
         destination_status = destination_eligibility(doc.get("locations") or [], destination_countries or [])
         if destination_status == "ineligible":
