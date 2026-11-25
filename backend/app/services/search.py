@@ -67,7 +67,7 @@ def deterministic_query_filters(query: str) -> dict:
 
     return {
         "categories": categories,
-        "countries": countries
+        "countries": countries,
         "skills": skills,
         "remote": remote,
         "fundingRequired": funding_required,
