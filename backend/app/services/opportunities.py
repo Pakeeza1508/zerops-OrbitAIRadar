@@ -88,23 +88,8 @@ def build_db_query(
         deadline_clause["$gte"] = deadline_after
     if deadline_clause:
         clauses.append({"deadline": deadline_clause})
-    if countries or applicant_countries:
-        lowered = [re.escape(x) for x in (applicant_countries or countries or []) if x]
-        if lowered:
-            clauses.append(
-                {
-                    "$or": [
-                        {"countriesEligible": {"$regex": "|".join(lowered), "$options": "i"}},
-                        {
-                            "countriesEligible": {
-                                "$in": ["Global", "Worldwide", "International", "All countries"]
-                            }
-                        },
-                        {"countriesEligible": {"$size": 0}},
-                        {"countriesEligible": {"$exists": False}},
-                    ]
-                }
-            )
+    # Applicant-country restrictions are evaluated below using canonicalized
+    # country aliases. A raw Mongo regex would miss USA/United States synonyms.
     # Student education and destination are validated after retrieval against
     # normalized values; database-only exact matching loses legitimate synonyms.
 
