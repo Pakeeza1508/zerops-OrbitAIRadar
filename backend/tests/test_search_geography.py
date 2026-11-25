@@ -4,6 +4,8 @@ import unittest
 from app.services.search_geography import (
     applicant_eligibility,
     destination_matches,
+    destination_eligibility,
+    remote_eligibility,
     education_eligibility,
     geography_from_query,
 )
@@ -65,7 +67,23 @@ class GeographyTests(unittest.TestCase):
     def test_destination_strict_not_nationality(self):
         self.assertTrue(destination_matches(["Berlin, Germany"], ["Germany"]))
         self.assertFalse(destination_matches(["Karachi, Pakistan"], ["Germany"]))
-        self.assertFalse(destination_matches([], ["Germany"]))
+        self.assertTrue(destination_matches([], ["Germany"]))
+        self.assertEqual(destination_eligibility([], ["Germany"]), "unverified")
+        self.assertEqual(destination_eligibility(["Karachi, Pakistan"], ["Germany"]), "ineligible")
+        self.assertEqual(destination_eligibility(["Berlin, Germany"], ["Germany"]), "eligible")
+
+
+    def test_remote_unknown_not_rejected(self):
+        self.assertEqual(remote_eligibility(None, True), "unverified")
+        self.assertEqual(remote_eligibility(True, True), "eligible")
+        self.assertEqual(remote_eligibility(False, True), "ineligible")
+        self.assertEqual(remote_eligibility(None, None), "not_requested")
+
+    def test_unverified_location_must_not_be_claimed_as_match(self):
+        self.assertEqual(destination_eligibility(["Not specified"], ["United States"]), "unverified")
+        self.assertEqual(destination_eligibility([], ["Japan"]), "unverified")
+        self.assertEqual(destination_eligibility(["New York, USA"], ["United States"]), "eligible")
+        self.assertEqual(destination_eligibility(["Berlin, Germany"], ["United States"]), "ineligible")
 
     def test_education_unknown_is_unverified(self):
         self.assertEqual(education_eligibility([], ["undergraduate"]), "unverified")
