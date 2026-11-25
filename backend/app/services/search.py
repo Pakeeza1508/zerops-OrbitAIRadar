@@ -71,6 +71,6 @@ def deterministic_query_filters(query: str) -> dict:
         "deadlineBefore": deadline_before,
         "deadlineAfter": deadline_after,
         "educationLevels": education_levels,
-        "queryText": text if not categories and not skills else None,
+        "queryText": text if not (categories or skills or geography["applicantCountries"] or geography["destinationCountries"] or education_levels or remote or funding_required or deadline_before) else None,
         "answer": f"Filtered opportunities using the available profile and query terms: {text}",
     }
