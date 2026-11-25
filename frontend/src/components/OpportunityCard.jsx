@@ -60,6 +60,12 @@ export default function OpportunityCard({ opportunity, saved = false, onToggleSa
                 {(opportunity.searchEligibility === "unverified" || opportunity.searchEducationEligibility === "unverified") && (
                   <span className="rounded-md border border-[#ffcb6b]/20 bg-[#ffcb6b]/10 px-1.5 py-0.5 text-[#ffcb6b]">Eligibility not verified</span>
                 )}
+                {opportunity.searchDestinationEligibility === "unverified" && (
+                  <span className="rounded-md border border-[#ffcb6b]/20 bg-[#ffcb6b]/10 px-1.5 py-0.5 text-[#ffcb6b]">Destination not verified</span>
+                )}
+                {opportunity.searchRemoteEligibility === "unverified" && (
+                  <span className="rounded-md border border-[#ffcb6b]/20 bg-[#ffcb6b]/10 px-1.5 py-0.5 text-[#ffcb6b]">Remote status not verified</span>
+                )}
               </div>
 
               <Link
