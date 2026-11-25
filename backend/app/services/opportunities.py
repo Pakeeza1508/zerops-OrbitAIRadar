@@ -168,6 +168,13 @@ async def list_opportunities(
 
     # Fetch a bounded pool because match score is user-specific and computed in Python.
     docs = await db.opportunities.find(query).sort("createdAt", -1).limit(500).to_list(500)
+    search_profile = dict(profile)
+    requested_applicants = applicant_countries or countries or []
+    if len(requested_applicants) == 1:
+        search_profile["country"] = requested_applicants[0]
+    if len(education_levels or []) == 1:
+        search_profile["educationLevel"] = education_levels[0]
+
     items = []
     for doc in docs:
         if is_generic_content_page(doc):
@@ -180,7 +187,7 @@ async def list_opportunities(
         education_status = education_eligibility(doc.get("educationLevels"), education_levels or [])
         if education_status == "ineligible":
             continue
-        enriched = enrich_opportunity(doc, profile)
+        enriched = enrich_opportunity(doc, search_profile)
         enriched["searchEligibility"] = applicant_status
         enriched["searchEducationEligibility"] = education_status
         items.append(enriched)
