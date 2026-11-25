@@ -8,7 +8,9 @@ from pydantic import BaseModel, Field, field_validator
 
 class OpportunitySearchFilters(BaseModel):
     categories: list[str] = Field(default_factory=list, max_length=20)
-    countries: list[str] = Field(default_factory=list, max_length=40)
+    countries: list[str] = Field(default_factory=list, max_length=40)  # Legacy compatibility
+    applicantCountries: list[str] = Field(default_factory=list, max_length=40)
+    destinationCountries: list[str] = Field(default_factory=list, max_length=40)
     skills: list[str] = Field(default_factory=list, max_length=40)
     remote: bool | None = None
     fundingRequired: bool | None = None
@@ -17,7 +19,7 @@ class OpportunitySearchFilters(BaseModel):
     educationLevels: list[str] = Field(default_factory=list, max_length=20)
     queryText: str | None = Field(default=None, max_length=300)
 
-    @field_validator("categories", "countries", "skills", "educationLevels")
+    @field_validator("categories", "countries", "applicantCountries", "destinationCountries", "skills", "educationLevels")
     @classmethod
     def clean_lists(cls, values: list[str]) -> list[str]:
         out, seen = [], set()
