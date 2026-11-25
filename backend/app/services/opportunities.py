@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.db import get_db
 from app.services.matching.engine import score_opportunity
+from app.services.search_geography import applicant_eligibility, destination_matches, education_eligibility
 from app.utils.mongo import object_id, serialize
 
 
@@ -46,6 +47,8 @@ def build_db_query(
     deadline_before: datetime | None = None,
     deadline_after: datetime | None = None,
     countries: list[str] | None = None,
+    applicant_countries: list[str] | None = None,
+    destination_countries: list[str] | None = None,
     education_levels: list[str] | None = None,
     skills: list[str] | None = None,
     include_unverified: bool = False,
@@ -85,8 +88,8 @@ def build_db_query(
         deadline_clause["$gte"] = deadline_after
     if deadline_clause:
         clauses.append({"deadline": deadline_clause})
-    if countries:
-        lowered = [re.escape(x) for x in countries if x]
+    if countries or applicant_countries:
+        lowered = [re.escape(x) for x in (applicant_countries or countries or []) if x]
         if lowered:
             clauses.append(
                 {
@@ -102,16 +105,9 @@ def build_db_query(
                     ]
                 }
             )
-    if education_levels:
-        clauses.append(
-            {
-                "$or": [
-                    {"educationLevels": {"$in": education_levels}},
-                    {"educationLevels": {"$size": 0}},
-                    {"educationLevels": {"$exists": False}},
-                ]
-            }
-        )
+    # Student education and destination are validated after retrieval against
+    # normalized values; database-only exact matching loses legitimate synonyms.
+
     if skills:
         skill_patterns = [re.escape(x) for x in skills if x][:12]
         if skill_patterns:
@@ -178,6 +174,8 @@ async def list_opportunities(
         deadline_before=deadline_before,
         deadline_after=deadline_after,
         countries=countries,
+        applicant_countries=applicant_countries,
+        destination_countries=destination_countries,
         education_levels=education_levels,
         skills=skills,
         include_unverified=include_unverified,
@@ -185,7 +183,22 @@ async def list_opportunities(
 
     # Fetch a bounded pool because match score is user-specific and computed in Python.
     docs = await db.opportunities.find(query).sort("createdAt", -1).limit(500).to_list(500)
-    items = [enrich_opportunity(doc, profile) for doc in docs if not is_generic_content_page(doc)]
+    items = []
+    for doc in docs:
+        if is_generic_content_page(doc):
+            continue
+        if not destination_matches(doc.get("locations") or [], destination_countries or []):
+            continue
+        applicant_status = applicant_eligibility(doc.get("countriesEligible"), applicant_countries or countries or [])
+        if applicant_status == "ineligible":
+            continue
+        education_status = education_eligibility(doc.get("educationLevels"), education_levels or [])
+        if education_status == "ineligible":
+            continue
+        enriched = enrich_opportunity(doc, profile)
+        enriched["searchEligibility"] = applicant_status
+        enriched["searchEducationEligibility"] = education_status
+        items.append(enriched)
     if min_match:
         items = [x for x in items if int(x.get("matchScore") or 0) >= min_match]
 
