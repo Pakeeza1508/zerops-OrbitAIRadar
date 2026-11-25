@@ -77,7 +77,7 @@ _COUNTRY_PATTERN = re.compile(
     r"(?<![a-z])(?:" + "|".join(re.escape(n) for n in _NAMES) + r")(?![a-z])",
     re.IGNORECASE,
 )
-_GLOBAL_MARKERS = {"global", "worldwide", "all countries", "any country", "open worldwide"}
+_GLOBAL_MARKERS = {"global", "worldwide", "all countries", "any country", "open worldwide", "international"}
 _EDUCATION_SYNONYMS = {
     "undergraduate": {"undergraduate", "bachelor", "bachelors", "bachelor's", "bsc", "college"},
     "masters": {"masters", "master", "master's", "postgraduate", "msc"},
