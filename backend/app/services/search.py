@@ -40,27 +40,27 @@ def deterministic_query_filters(query: str) -> dict:
 
     # Parse explicitly stated eligibility constraints even without Groq.
     countries = []
-    if re.search(r"\\b(?:pakistan|pakistani)\\b", lowered):
+    if re.search(r"\b(?:pakistan|pakistani)\b", lowered):
         countries.append("Pakistan")
-    if re.search(r"\\bantarctica\\b", lowered):
+    if re.search(r"\bantarctica\b", lowered):
         countries.append("Antarctica")
 
     education_levels = []
-    if re.search(r"\\b(?:undergraduate|undergrads?|bachelors?|b\\.?sc)\\b", lowered):
+    if re.search(r"\b(?:undergraduate|undergrads?|bachelors?|b\.?sc)\b", lowered):
         education_levels.append("undergraduate")
-    if re.search(r"\\b(?:masters?|postgraduate|m\\.?sc)\\b", lowered):
+    if re.search(r"\b(?:masters?|postgraduate|m\.?sc)\b", lowered):
         education_levels.append("masters")
-    if re.search(r"\\b(?:phd|doctoral|doctorate)\\b", lowered):
+    if re.search(r"\b(?:phd|doctoral|doctorate)\b", lowered):
         education_levels.append("phd")
 
     deadline_before = None
     deadline_after = None
     now = datetime.now(timezone.utc)
-    m = re.search(r"(?:next|within)\\s+(\\d{1,3})\\s+days", lowered)
+    m = re.search(r"(?:next|within)\s+(\d{1,3})\s+days", lowered)
     if m:
         deadline_after = now
         deadline_before = now + timedelta(days=min(int(m.group(1)), 365))
-    elif re.search(r"\\b(?:closing|deadline|ends?)\\s+(?:by\\s+)?tomorrow\\b", lowered):
+    elif re.search(r"\b(?:closing|deadline|ends?)\s+(?:by\s+)?tomorrow\b", lowered):
         tomorrow = (now + timedelta(days=1)).date()
         deadline_after = now
         deadline_before = datetime.combine(tomorrow, datetime.max.time(), tzinfo=timezone.utc)
