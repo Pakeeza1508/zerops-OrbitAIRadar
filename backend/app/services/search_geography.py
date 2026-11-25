@@ -120,7 +120,7 @@ def geography_from_query(query: str) -> dict:
         destination = bool(re.search(r"(?:\bin\s+|\bto\s+|\bat\s+|\blocated\s+in\s+|\bbased\s+in\s+)$", pre))
         # Plain "from X" is nationality only if contextualized by student, applicant or first person.
         if re.search(r"\bfrom\s+$", pre) and not re.search(
-            r"\b(?:student|applicant|graduate|resident|citizen|i am|i'm|im|people|candidates?)\b", pre
+            r"\b(?:students?|applicants?|graduates?|residents?|citizens?|i am|i'm|im|people|candidates?)\b", pre
         ):
             nationality = False
         if nationality:
