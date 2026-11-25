@@ -10,6 +10,7 @@ from app.services.ai.tasks import query_to_filters
 from app.services.opportunities import list_opportunities
 from app.services.scrapper.pipeline import run_ingestion
 from app.services.search import deterministic_query_filters
+from app.services.search_geography import geography_from_query
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -18,6 +19,8 @@ def _validated_filters(raw: dict) -> OpportunitySearchFilters:
     allowed = {
         "categories": raw.get("categories") or [],
         "countries": raw.get("countries") or [],
+        "applicantCountries": raw.get("applicantCountries") or [],
+        "destinationCountries": raw.get("destinationCountries") or [],
         "skills": raw.get("skills") or [],
         "remote": raw.get("remote"),
         "fundingRequired": raw.get("fundingRequired"),
@@ -36,6 +39,14 @@ async def ai_search(payload: AIQueryRequest, user: User = Depends(get_current_us
     if not raw:
         raw = deterministic_query_filters(payload.query)
 
+    # Explicit nationality and destination intent must not be lost when the LLM
+    # returns the old single-country field or guesses a different interpretation.
+    geography = geography_from_query(payload.query)
+    raw = dict(raw)
+    raw["applicantCountries"] = geography["applicantCountries"]
+    raw["destinationCountries"] = geography["destinationCountries"]
+    raw["countries"] = []  # Legacy country ambiguity must never drive filtering.
+
     try:
         filters = _validated_filters(raw)
     except Exception:
@@ -53,6 +64,8 @@ async def ai_search(payload: AIQueryRequest, user: User = Depends(get_current_us
         deadline_before=filters.deadlineBefore,
         deadline_after=filters.deadlineAfter,
         countries=filters.countries,
+        applicant_countries=filters.applicantCountries,
+        destination_countries=filters.destinationCountries,
         education_levels=filters.educationLevels,
         skills=filters.skills,
         sort="best_match",
