@@ -28,13 +28,16 @@ def deterministic_query_filters(query: str) -> dict:
         if any(term in lowered for term in terms):
             categories.append(category)
 
+    if "research" in categories and any(x in categories for x in ("fellowship", "internship", "scholarship")):
+        categories.remove("research")  # modifier, not an additional opportunity type
+
     skills = []
     for skill in SKILL_VOCAB:
         if re.search(r"(?<![a-z0-9])" + re.escape(skill.lower()) + r"(?![a-z0-9])", lowered):
             skills.append(skill)
 
     # Field-of-study phrases are distinct from short skill tags.
-    if re.search(r"\\bsoftware\\s+(?:engineering|engineer|development|developer)\\b", lowered):
+    if re.search(r"\bsoftware\s+(?:engineering|engineer|development|developer)\b", lowered):
         skills.append("Software Engineering")
     remote = True if "remote" in lowered or "work from home" in lowered else None
     funding_required = True if any(
