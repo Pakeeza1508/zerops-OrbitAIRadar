@@ -152,15 +152,29 @@ def applicant_eligibility(eligible_countries: list[str] | None, applicants: list
     return "ineligible"
 
 
-def destination_matches(locations: list[str] | None, destinations: list[str]) -> bool:
+def destination_eligibility(locations: list[str] | None, destinations: list[str]) -> str:
+    """Return eligible, unverified, or ineligible; never invent a destination."""
     if not destinations:
-        return True
-    # An unknown location cannot satisfy a country-specific search.
+        return "not_requested"
+    located = set()
     for location in locations or []:
-        recognized = {name for name, _, _ in countries_in_text(str(location))}
-        if recognized.intersection(destinations):
-            return True
-    return False
+        located.update(name for name, _, _ in countries_in_text(str(location)))
+    if not located:
+        return "unverified"
+    return "eligible" if located.intersection(destinations) else "ineligible"
+
+
+def destination_matches(locations: list[str] | None, destinations: list[str]) -> bool:
+    # Keep uncertain records discoverable but explicitly label them as unverified.
+    return destination_eligibility(locations, destinations) != "ineligible"
+
+
+def remote_eligibility(remote: bool | None, requested: bool | None) -> str:
+    if requested is None:
+        return "not_requested"
+    if remote is None:
+        return "unverified"
+    return "eligible" if remote is requested else "ineligible"
 
 
 def education_eligibility(levels: list[str] | None, requested: list[str]) -> str:
