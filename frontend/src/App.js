@@ -1544,7 +1544,7 @@ function DiscoverPage() {
       setPage(1);
       const returned = Array.isArray(data.items) ? data.items : [];
       setAiAnswer({
-        text: returned.length === 0 ? "No matching indexed opportunities. Missing deadlines or eligibility cannot confirm a match." : `${returned.length} indexed result(s). ${returned.filter(item => item.searchEligibility === "unverified" || item.searchEducationEligibility === "unverified").length} require eligibility or education verification. Check funding and deadlines on the official source.`,
+        text: returned.length === 0 ? "No matching indexed opportunities. Missing deadlines or eligibility cannot confirm a match." : `${returned.length} indexed result(s). ${returned.filter(item => ["searchEligibility", "searchEducationEligibility", "searchDestinationEligibility", "searchRemoteEligibility"].some(key => item[key] === "unverified")).length} have unverified eligibility, location, education or remote information. Check funding and deadlines on the official source.`,
         results: returned, usedAI: data.usedAI === true, total: data.total || 0, filters: data.filters || {},
       });
     } catch (error) {
