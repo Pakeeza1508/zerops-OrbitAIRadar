@@ -33,6 +33,9 @@ def deterministic_query_filters(query: str) -> dict:
         if re.search(r"(?<![a-z0-9])" + re.escape(skill.lower()) + r"(?![a-z0-9])", lowered):
             skills.append(skill)
 
+    # Field-of-study phrases are distinct from short skill tags.
+    if re.search(r"\\bsoftware\\s+(?:engineering|engineer|development|developer)\\b", lowered):
+        skills.append("Software Engineering")
     remote = True if "remote" in lowered or "work from home" in lowered else None
     funding_required = True if any(
         term in lowered
@@ -61,6 +64,7 @@ def deterministic_query_filters(query: str) -> dict:
         deadline_after = now
         deadline_before = datetime.combine(tomorrow, datetime.max.time(), tzinfo=timezone.utc)
 
+    skills = list(dict.fromkeys(skills))
     return {
         "categories": categories,
         "countries": [],
