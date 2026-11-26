@@ -2533,11 +2533,12 @@ function IngestionPage() {
           </button>}
         </div>
       </div>
-      {canRunManual && !loading && (
+      {!loading && (
         <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
           <h2 className="text-sm font-bold text-slate-900">One-time CERN SUMM-2027 correction</h2>
           <p className="mt-1 text-xs text-slate-700">Update existing “Summer Studentship” in place (same ID, backup first). No other opportunity is changed.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          {!canRunManual && <p role="status" className="mt-3 text-xs font-semibold text-amber-950">Admin access required. This account cannot run the CERN correction. Sign in with an existing authorized Orbit administrator account; no permissions have been changed.</p>}
+          {canRunManual && <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" disabled={cernMigrationBusy} onClick={() => migrateCern(false)}
               className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold disabled:opacity-50">
               {cernMigrationBusy ? "Checking…" : "1. Dry-run CERN correction"}
@@ -2548,7 +2549,7 @@ function IngestionPage() {
                 2. Apply one-time update
               </button>
             )}
-          </div>
+          </div>}
           {cernMigrationError && <p role="alert" className="mt-2 text-xs text-red-700">{cernMigrationError}</p>}
           {cernMigration && <p role="status" className="mt-2 text-xs text-slate-800">
             {cernMigration.status === "dry_run"
