@@ -157,7 +157,7 @@ def clearly_historical_program(doc: dict) -> bool:
     past program year when there is no independently confirmed upcoming cycle.
     """
     title = str(doc.get("title") or "")
-    years = [int(year) for year in re.findall(r"(?<!\\d)(20\\d{2})(?!\\d)", title)]
+    years = [int(year) for year in re.findall(r"(?<!\d)(20\d{2})(?!\d)", title)]
     current_year = datetime.now(timezone.utc).year
     if not years or max(years) >= current_year:
         return False
