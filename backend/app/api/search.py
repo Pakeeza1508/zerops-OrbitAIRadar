@@ -10,7 +10,7 @@ from app.services.ai.tasks import query_to_filters
 from app.services.opportunities import list_opportunities
 from app.services.scrapper.pipeline import run_ingestion
 from app.services.search import deterministic_query_filters
-from app.services.search_geography import geography_from_query, normalize_country
+from app.services.search_reconcile import reconcile_ai_filters
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -34,50 +34,8 @@ def _validated_filters(raw: dict) -> OpportunitySearchFilters:
 
 @router.post("/ai")
 async def ai_search(payload: AIQueryRequest, user: User = Depends(get_current_user)):
-    raw = await query_to_filters(payload.query)
-    used_ai = isinstance(raw, dict)
-    if not raw:
-        raw = deterministic_query_filters(payload.query)
-
-    # Merge deterministic high-confidence constraints into both Groq and fallback.
-    # An LLM must not erase explicitly requested internship, remote or skills.
-    deterministic = deterministic_query_filters(payload.query)
-    raw = dict(raw)
-    for key in ("categories", "skills", "educationLevels"):
-        explicit = deterministic.get(key) or []
-        inferred = raw.get(key) or []
-        if explicit:
-            # Explicit categories/skills win over speculative model expansions.
-            raw[key] = explicit
-        elif not isinstance(inferred, list):
-            raw[key] = []
-    for key in ("remote", "fundingRequired", "deadlineBefore", "deadlineAfter"):
-        if deterministic.get(key) is not None:
-            raw[key] = deterministic[key]
-    if any(deterministic.get(k) for k in ("categories", "skills", "educationLevels", "applicantCountries", "destinationCountries", "remote", "fundingRequired", "deadlineBefore")):
-        raw["queryText"] = None
-
-    # Explicit nationality and destination intent must not be lost when the LLM
-    # returns the old single-country field or guesses a different interpretation.
-    geography = geography_from_query(payload.query)
-    llm_applicants = raw.get("applicantCountries") or []
-    llm_destinations = raw.get("destinationCountries") or []
-    # Deterministic explicit intent wins; the LLM can handle demonyms not in
-    # the local alias dictionary, such as "Polish" -> "Poland".
-    raw["applicantCountries"] = geography["applicantCountries"] or [
-        normalize_country(x) for x in llm_applicants if isinstance(x, str)
-    ]
-    raw["destinationCountries"] = geography["destinationCountries"] or [
-        normalize_country(x) for x in llm_destinations if isinstance(x, str)
-    ]
-    if not geography["destinationCountries"]:
-        # A nationality by itself is not evidence of a preferred destination.
-        raw["destinationCountries"] = [
-            x for x in raw["destinationCountries"] if x not in raw["applicantCountries"]
-        ]
-    if any(word in payload.query.lower() for word in ("worldwide", "globally", "anywhere in the world")):
-        raw["destinationCountries"] = []
-    raw["countries"] = []  # Legacy country ambiguity must never drive filtering.
+    ai_response = await query_to_filters(payload.query)
+    raw, used_ai, interpretation_source = reconcile_ai_filters(payload.query, ai_response)
 
     try:
         filters = _validated_filters(raw)
@@ -86,6 +44,7 @@ async def ai_search(payload: AIQueryRequest, user: User = Depends(get_current_us
         filters = _validated_filters(fallback)
         raw = fallback
         used_ai = False
+        interpretation_source = "ai_validation_failed"
 
     results = await list_opportunities(
         user.id,
@@ -111,6 +70,7 @@ async def ai_search(payload: AIQueryRequest, user: User = Depends(get_current_us
         "filters": filters.model_dump(mode="json"),
         "aiConfigured": groq_client.enabled,
         "usedAI": used_ai,
+        "interpretationSource": interpretation_source,
         **results,
     }
 
