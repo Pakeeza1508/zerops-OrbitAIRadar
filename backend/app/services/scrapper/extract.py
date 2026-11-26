@@ -183,6 +183,10 @@ def extract_meta(soup: BeautifulSoup) -> dict:
 
 def guess_category(text: str, hint: str | None = None) -> str:
     lowered = text.lower()[:6000]
+    # "Summer Student Programme" is a practical student placement, not a
+    # competition just because generic site navigation mentions awards.
+    if re.search(r"\\bsummer students? programme\\b", lowered[:220]):
+        return "internship"
     best, best_hits = hint or "other", 0
     for category, keywords in CATEGORY_KEYWORDS.items():
         hits = sum(lowered.count(k) for k in keywords)
@@ -374,17 +378,38 @@ def deterministic_extract(url: str, html: str, category_hint: str | None = None)
         text, 900
     )
     signal_text = f"{title or ''} {description or ''} {text}"
+    # The listing's deadline and location can sit in the heading OUTSIDE <main>.
+    # Search that header separately; do not harvest unrelated footer link lists.
+    header = strip_html(soup.get_text(" "))[:1800]
+    header_and_body = f"{header} {signal_text}"
 
     deadline = parse_date(jsonld.get("deadlineRaw")) if jsonld.get("deadlineRaw") else None
     deadline_text = jsonld.get("deadlineRaw") if deadline else None
     if not deadline:
-        deadline, deadline_text = extract_deadline(signal_text)
+        deadline, deadline_text = extract_deadline(header_and_body)
 
     funding_type, funding_amount, currency = extract_funding(signal_text)
     countries = extract_countries(signal_text)
+    # A programme explicitly open to member AND non-member-state nationals is
+    # a worldwide applicant pool; never infer eligibility from mere mentions
+    # of countries in generic site text.
+    if title and re.search(r"member\\s+and\\s+non[- ]member\\s+state", title, re.IGNORECASE):
+        countries = ["Worldwide"]
     remote = True if jsonld.get("remote") or REMOTE_RE.search(signal_text) else None
     hybrid = True if HYBRID_RE.search(signal_text) else None
     onsite = True if ONSITE_RE.search(signal_text) else None
+    if onsite and remote is None and not hybrid:
+        remote = False
+
+    locations = jsonld.get("locations") or []
+    if not locations:
+        # Only the job heading (not the footer/navigation) can establish place.
+        city_country = re.search(
+            r"\\b([A-Z][a-z]+(?:[ -][A-Z][a-z]+){0,2}),\\s*(Switzerland|"
+            r"Germany|France|United States|Canada|United Kingdom)\\b", header
+        )
+        if city_country:
+            locations = [city_country.group(0)]
 
     requirements = extract_bullets(
         soup, ("requirement", "eligib", "who can apply", "criteria", "qualification")
@@ -398,6 +423,24 @@ def deterministic_extract(url: str, html: str, category_hint: str | None = None)
             if node:
                 eligibility_text = truncate(strip_html(node.get_text(" ")), 700)
             break
+
+    # Avoid accepting "not a PhD candidate" as positive PhD eligibility.
+    education = extract_education_levels(signal_text)
+    if eligibility_text and re.search(
+        r"\\bnot\\s+(?:a\\s+|an\\s+)?ph\\.?d\\b|\\bph\\.?d\\s+(?:students?|candidates?)\\s+(?:are\\s+)?not\\s+eligible",
+        eligibility_text, re.IGNORECASE,
+    ):
+        education = [level for level in education if level != "phd"]
+
+    funding_type, funding_amount, currency = extract_funding(signal_text)
+    daily_allowance = re.search(
+        r"\\b(\\d{1,5}(?:\\.\\d{1,2})?)\\s*CHF\\s+per\\s+calendar\\s+day\\b",
+        text, re.IGNORECASE,
+    )
+    if daily_allowance:
+        funding_type = "stipend"
+        funding_amount = float(daily_allowance.group(1))
+        currency = "CHF"
 
     result = {
         "title": title,
@@ -413,12 +456,12 @@ def deterministic_extract(url: str, html: str, category_hint: str | None = None)
         if jsonld.get("applicationOpenRaw")
         else None,
         "countriesEligible": countries,
-        "locations": jsonld.get("locations") or [],
+        "locations": locations,
         "remote": remote,
         "hybrid": hybrid,
         "onsite": onsite,
-        "educationLevels": extract_education_levels(signal_text),
-        "fieldsOfStudy": extract_fields(signal_text),
+        "educationLevels": education,
+        "fieldsOfStudy": extract_fields(text.split("Global Benefits at", 1)[0]),
         "requiredSkills": extract_skills(signal_text[:6000]),
         "fundingType": funding_type,
         "fundingAmount": funding_amount,
