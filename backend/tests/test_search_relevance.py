@@ -61,7 +61,7 @@ class SearchRelevanceTests(unittest.IsolatedAsyncioTestCase):
         cern = {
             "title": "Post-Career Break Fellowship",
             "category": "fellowship", "status": "active",
-            "description": "AI career-break research",
+            "description": "Artificial intelligence career-break research",
             "countriesEligible": [], "locations": [], "educationLevels": [],
             "createdAt": None,
         }
