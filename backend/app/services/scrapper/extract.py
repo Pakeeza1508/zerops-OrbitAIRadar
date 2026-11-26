@@ -185,7 +185,7 @@ def guess_category(text: str, hint: str | None = None) -> str:
     lowered = text.lower()[:6000]
     # "Summer Student Programme" is a practical student placement, not a
     # competition just because generic site navigation mentions awards.
-    if re.search(r"\\bsummer students? programme\\b", lowered[:220]):
+    if re.search(r"\bsummer students? programme\b", lowered[:220]):
         return "internship"
     best, best_hits = hint or "other", 0
     for category, keywords in CATEGORY_KEYWORDS.items():
@@ -393,7 +393,7 @@ def deterministic_extract(url: str, html: str, category_hint: str | None = None)
     # A programme explicitly open to member AND non-member-state nationals is
     # a worldwide applicant pool; never infer eligibility from mere mentions
     # of countries in generic site text.
-    if title and re.search(r"member\\s+and\\s+non[- ]member\\s+state", title, re.IGNORECASE):
+    if title and re.search(r"member\s+and\s+non[- ]member\s+state", title, re.IGNORECASE):
         countries = ["Worldwide"]
     remote = True if jsonld.get("remote") or REMOTE_RE.search(signal_text) else None
     hybrid = True if HYBRID_RE.search(signal_text) else None
@@ -405,8 +405,8 @@ def deterministic_extract(url: str, html: str, category_hint: str | None = None)
     if not locations:
         # Only the job heading (not the footer/navigation) can establish place.
         city_country = re.search(
-            r"\\b([A-Z][a-z]+(?:[ -][A-Z][a-z]+){0,2}),\\s*(Switzerland|"
-            r"Germany|France|United States|Canada|United Kingdom)\\b", header
+            r"\b([A-Z][a-z]+(?:[ -][A-Z][a-z]+){0,2}),\s*(Switzerland|"
+            r"Germany|France|United States|Canada|United Kingdom)\b", header
         )
         if city_country:
             locations = [city_country.group(0)]
