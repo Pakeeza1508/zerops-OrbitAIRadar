@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.admin_migrations import router as admin_migrations_router
 from app.api.auth import profile_router, router as auth_router
 from app.api.ingestion import router as ingestion_router
 from app.api.opportunities import router as opportunities_router, stats_router
@@ -15,6 +16,7 @@ api_router.include_router(saved_router)
 api_router.include_router(search_router)
 api_router.include_router(stats_router)
 api_router.include_router(ingestion_router)
+api_router.include_router(admin_migrations_router)
 
 
 @api_router.get("/")
