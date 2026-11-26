@@ -427,14 +427,14 @@ def deterministic_extract(url: str, html: str, category_hint: str | None = None)
     # Avoid accepting "not a PhD candidate" as positive PhD eligibility.
     education = extract_education_levels(signal_text)
     if eligibility_text and re.search(
-        r"\\bnot\\s+(?:a\\s+|an\\s+)?ph\\.?d\\b|\\bph\\.?d\\s+(?:students?|candidates?)\\s+(?:are\\s+)?not\\s+eligible",
+        r"\bnot\s+(?:a\s+|an\s+)?ph\.?d\b|\bph\.?d\s+(?:students?|candidates?)\s+(?:are\s+)?not\s+eligible",
         eligibility_text, re.IGNORECASE,
     ):
         education = [level for level in education if level != "phd"]
 
     funding_type, funding_amount, currency = extract_funding(signal_text)
     daily_allowance = re.search(
-        r"\\b(\\d{1,5}(?:\\.\\d{1,2})?)\\s*CHF\\s+per\\s+calendar\\s+day\\b",
+        r"\b(\d{1,5}(?:\.\d{1,2})?)\s*CHF\s+per\s+calendar\s+day\b",
         text, re.IGNORECASE,
     )
     if daily_allowance:
