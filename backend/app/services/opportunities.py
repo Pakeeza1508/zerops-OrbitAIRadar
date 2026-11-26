@@ -104,34 +104,70 @@ def build_db_query(
 
 
 def skill_query_matches(doc: dict, skills: list[str] | None) -> bool:
-    """For AI searches, require actual skill/topic evidence, never a loose substring.
+    """Require visible, opportunity-specific evidence for each requested skill.
 
-    Use public opportunity evidence as well as extracted skill tags because
-    historical index records often have missing requiredSkills.
+    A passing mention of 'AI' in a long crawl description is not evidence
+    that an earth-science internship is an AI internship.
     """
     if not skills:
         return True
-    fields = ("title", "shortDescription", "description", "requiredSkills",
-              "preferredSkills", "fieldsOfStudy")
-    pieces = []
-    for field in fields:
-        value = doc.get(field) or ""
-        pieces.extend(str(v) for v in value) if isinstance(value, list) else pieces.append(str(value))
-    haystack = " ".join(pieces).lower()
-    if not haystack.strip():
-        return False
+
     aliases = {
         "software engineering": ("software engineer", "software engineering",
                                  "software developer", "software development"),
-        "ai": ("ai", "artificial intelligence", "machine learning", "deep learning"),
+        "ai": ("artificial intelligence", "machine learning", "deep learning",
+               "generative ai", "ai engineer", "ai research", "ai internship",
+               "ai fellowship", "ai developer", "ai/ml", "ai model"),
         "machine learning": ("machine learning", "ml engineer"),
         "data science": ("data science", "data scientist"),
     }
+
+    def matches(value: str, variants: tuple[str, ...]) -> bool:
+        return any(re.search(r"(?<![a-z0-9])" + re.escape(v) + r"(?![a-z0-9])", value.lower())
+                   for v in variants if v)
+
+    title = str(doc.get("title") or "")
+    short = str(doc.get("shortDescription") or "")
+    skill_fields = " ".join(str(item) for key in ("requiredSkills", "preferredSkills", "fieldsOfStudy")
+                            for item in (doc.get(key) or []))
+    description = str(doc.get("description") or "")
+
     for skill in skills:
-        variants = aliases.get(skill.strip().lower(), (skill.strip().lower(),))
-        if any(re.search(r"(?<![a-z0-9])" + re.escape(v) + r"(?![a-z0-9])", haystack) for v in variants if v):
+        skill_key = skill.strip().lower()
+        variants = aliases.get(skill_key, (skill_key,))
+        # Explicit skill/topic labels and the prominent user-facing summary are high-confidence.
+        if matches(title, variants) or matches(short, variants) or matches(skill_fields, variants):
+            return True
+        # The long description is often generic organization boilerplate.
+        # Accept clear program-relevant phrases, never a standalone "AI" token.
+        if skill_key == "ai":
+            if matches(description, ("artificial intelligence", "machine learning",
+                                    "deep learning", "generative ai", "ai research",
+                                    "ai engineering", "ai internship", "ai fellowship")):
+                return True
+        elif matches(description, variants):
             return True
     return False
+
+
+def clearly_historical_program(doc: dict) -> bool:
+    """Exclude a clearly past year-specific cohort from strict AI search.
+
+    A record's last-check date is NOT proof it is closed. Use only an explicitly
+    past program year when there is no independently confirmed upcoming cycle.
+    """
+    title = str(doc.get("title") or "")
+    years = [int(year) for year in re.findall(r"(?<!\\d)(20\\d{2})(?!\\d)", title)]
+    current_year = datetime.now(timezone.utc).year
+    if not years or max(years) >= current_year:
+        return False
+    deadline = doc.get("deadline")
+    if deadline is not None:
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        if deadline >= datetime.now(timezone.utc):
+            return False
+    return True
 
 
 def enrich_opportunity(doc: dict, profile: dict | None = None) -> dict:
@@ -204,6 +240,8 @@ async def list_opportunities(
     items = []
     for doc in docs:
         if is_generic_content_page(doc):
+            continue
+        if require_verified_constraints and clearly_historical_program(doc):
             continue
         if not skill_query_matches(doc, skills):
             continue
