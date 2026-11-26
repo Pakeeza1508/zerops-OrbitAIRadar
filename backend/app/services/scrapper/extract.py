@@ -215,7 +215,7 @@ def extract_education_levels(text: str) -> list[str]:
 
 def extract_fields(text: str) -> list[str]:
     lowered = text.lower()
-    return [f for f in FIELD_VOCAB if f.lower() in lowered][:8]
+    return [f for f in FIELD_VOCAB if re.search(r"(?<![a-z])" + re.escape(f.lower()) + r"(?![a-z])", lowered)][:8]
 
 
 def extract_countries(text: str) -> list[str]:
