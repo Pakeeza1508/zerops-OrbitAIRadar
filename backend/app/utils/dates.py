@@ -56,9 +56,9 @@ def extract_deadline(text: str | None) -> tuple[datetime | None, str | None]:
     # Explicit European date with the publisher's named timezone. Do not use
     # dateutil's ambiguous MM/DD interpretation or guess a time of day.
     european = re.search(
-        r"\\b(?:before|apply(?:\\s+)?before|deadline(?:\\s+is)?[:\\s]+)"
-        r"\\s*(\\d{1,2}/\\d{1,2}/20\\d{2})\\s+at\\s+"
-        r"(\\d{1,2}:\\d{2})\\s*\\(Geneva Time\\)", text, re.IGNORECASE
+        r"\b(?:before|apply(?:\s+)?before|deadline(?:\s+is)?[:\s]+)"
+        r"\s*(\d{1,2}/\d{1,2}/20\d{2})\s+at\s+"
+        r"(\d{1,2}:\d{2})\s*\(Geneva Time\)", text, re.IGNORECASE
     )
     if european:
         try:
