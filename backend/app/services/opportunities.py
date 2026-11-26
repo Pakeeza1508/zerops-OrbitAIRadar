@@ -173,6 +173,7 @@ async def list_opportunities(
     page: int = 1,
     page_size: int = 20,
     include_unverified: bool = False,
+    require_verified_constraints: bool = False,
 ) -> dict:
     db = get_db()
     profile = await get_profile(user_id)
@@ -217,6 +218,15 @@ async def list_opportunities(
             continue
         education_status = education_eligibility(doc.get("educationLevels"), education_levels or [])
         if education_status == "ineligible":
+            continue
+        if require_verified_constraints and (
+            (destination_countries and destination_status != "eligible")
+            or (requested_applicants and applicant_status != "eligible")
+            or (education_levels and education_status != "eligible")
+            or (remote is not None and remote_status != "eligible")
+        ):
+            # In strict AI search, unknown metadata is not a confirmed match.
+            # Keep these candidates in normal Discover and preserve their records.
             continue
         enriched = enrich_opportunity(doc, search_profile)
         enriched["searchEligibility"] = applicant_status
