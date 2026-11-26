@@ -103,6 +103,7 @@ async def ai_search(payload: AIQueryRequest, user: User = Depends(get_current_us
         sort="best_match",
         page=1,
         page_size=50,
+        require_verified_constraints=True,
     )
     return {
         "answer": raw.get("answer")
