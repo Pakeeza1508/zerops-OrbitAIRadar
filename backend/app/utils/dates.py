@@ -1,5 +1,6 @@
 import re
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from dateutil import parser as dateutil_parser
 
@@ -52,6 +53,21 @@ def parse_date(value: str | None) -> datetime | None:
 def extract_deadline(text: str | None) -> tuple[datetime | None, str | None]:
     if not text:
         return None, None
+    # Explicit European date with the publisher's named timezone. Do not use
+    # dateutil's ambiguous MM/DD interpretation or guess a time of day.
+    european = re.search(
+        r"\\b(?:before|apply(?:\\s+)?before|deadline(?:\\s+is)?[:\\s]+)"
+        r"\\s*(\\d{1,2}/\\d{1,2}/20\\d{2})\\s+at\\s+"
+        r"(\\d{1,2}:\\d{2})\\s*\\(Geneva Time\\)", text, re.IGNORECASE
+    )
+    if european:
+        try:
+            local = datetime.strptime(
+                european.group(1) + " " + european.group(2), "%d/%m/%Y %H:%M"
+            ).replace(tzinfo=ZoneInfo("Europe/Zurich"))
+            return local.astimezone(timezone.utc), european.group(0)
+        except ValueError:
+            pass
     for pattern in DEADLINE_PATTERNS:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
