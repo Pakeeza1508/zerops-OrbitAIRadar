@@ -2422,6 +2422,9 @@ function IngestionPage() {
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState("");
   const [notice, setNotice] = useState("");
+  const [cernMigration, setCernMigration] = useState(null);
+  const [cernMigrationBusy, setCernMigrationBusy] = useState(false);
+  const [cernMigrationError, setCernMigrationError] = useState("");
 
   const loadRadar = async () => {
     const [runData, sourceData, capability] = await Promise.all([
@@ -2476,6 +2479,25 @@ function IngestionPage() {
     } finally { setRunning(false); }
   };
 
+  const migrateCern = async (execute = false) => {
+    if (!canRunManual || cernMigrationBusy) return;
+    if (execute && (cernMigration?.status !== "dry_run" || !window.confirm("Upgrade the existing CERN Summer Studentship record to SUMM-2027? This updates one database record and creates a backup."))) return;
+    setCernMigrationBusy(true);
+    setCernMigrationError("");
+    try {
+      const data = await apiRequest("/api/admin/migrations/cern-summ-2027", {
+        method: "POST",
+        body: { execute, confirmation: execute ? "UPGRADE_CERN_SUMM_2027" : null },
+      });
+      setCernMigration(data);
+    } catch (err) {
+      setCernMigrationError(err.message || "CERN migration could not complete.");
+      if (execute) setCernMigration(null);
+    } finally {
+      setCernMigrationBusy(false);
+    }
+  };
+
   const formatWhen = (value) => {
     if (!value) return "Never";
     const date = new Date(value);
@@ -2511,6 +2533,30 @@ function IngestionPage() {
           </button>}
         </div>
       </div>
+      {canRunManual && !loading && (
+        <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <h2 className="text-sm font-bold text-slate-900">One-time CERN SUMM-2027 correction</h2>
+          <p className="mt-1 text-xs text-slate-700">Update existing “Summer Studentship” in place (same ID, backup first). No other opportunity is changed.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" disabled={cernMigrationBusy} onClick={() => migrateCern(false)}
+              className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold disabled:opacity-50">
+              {cernMigrationBusy ? "Checking…" : "1. Dry-run CERN correction"}
+            </button>
+            {cernMigration?.status === "dry_run" && (
+              <button type="button" disabled={cernMigrationBusy} onClick={() => migrateCern(true)}
+                className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+                2. Apply one-time update
+              </button>
+            )}
+          </div>
+          {cernMigrationError && <p role="alert" className="mt-2 text-xs text-red-700">{cernMigrationError}</p>}
+          {cernMigration && <p role="status" className="mt-2 text-xs text-slate-800">
+            {cernMigration.status === "dry_run"
+              ? `Dry-run only, no write: ${cernMigration.previousTitle} → ${cernMigration.newTitle}. Deadline ${cernMigration.deadline}; ${cernMigration.location}. Review before applying.`
+              : `Updated existing record ${cernMigration.recordId}. Backup ${cernMigration.backupId}. Refresh Discover to confirm.`}
+          </p>}
+        </section>
+      )}
       {!canRunManual && !loading && !error && <p className="mt-4 text-xs text-slate-500">Manual discovery is restricted to administrators.</p>}
       {loading && <p role="status" className="mt-5 text-sm text-slate-600">Loading radar activity…</p>}
       {error && <p role="alert" className="mt-5 text-sm text-red-700">{error}</p>}
