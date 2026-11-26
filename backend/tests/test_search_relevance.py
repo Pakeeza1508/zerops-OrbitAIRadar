@@ -2,7 +2,7 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.opportunities import list_opportunities
+from app.services.opportunities import list_opportunities, skill_query_matches, clearly_historical_program
 
 
 class _Cursor:
@@ -68,6 +68,34 @@ class SearchRelevanceTests(unittest.IsolatedAsyncioTestCase):
         result = await self._search([cern], False)
         self.assertEqual(result["total"], 1)
         self.assertEqual(result["items"][0]["searchDestinationEligibility"], "unverified")
+
+    def test_terrestrial_fluxes_does_not_count_as_ai(self):
+        record = {
+            "title": "SARP East 2025 Terrestrial Fluxes Group",
+            "shortDescription": "Summer research on terrestrial fluxes and atmospheric observations",
+            "description": "Students study field measurements. AI tools are sometimes used by NASA across its projects.",
+            "requiredSkills": [], "preferredSkills": [], "fieldsOfStudy": ["Earth Science"],
+        }
+        self.assertFalse(skill_query_matches(record, ["AI"]))
+        self.assertTrue(clearly_historical_program(record))
+
+    def test_real_ai_program_keeps_relevance(self):
+        record = {
+            "title": "AI Research Internship",
+            "shortDescription": "Machine learning for climate prediction",
+            "description": "Interns train models",
+            "requiredSkills": ["Python"], "preferredSkills": [],
+        }
+        self.assertTrue(skill_query_matches(record, ["AI"]))
+        self.assertFalse(clearly_historical_program(record))
+
+    def test_past_check_date_alone_not_expired(self):
+        record = {"title": "AI Research Internship", "lastCheckedAt": "2026-08-26"}
+        self.assertFalse(clearly_historical_program(record))
+
+    def test_historical_title_without_future_deadline(self):
+        record = {"title": "2025 Summer Internship", "deadline": None}
+        self.assertTrue(clearly_historical_program(record))
 
 
 if __name__ == "__main__":
